@@ -1,0 +1,3 @@
+[languages]
+    [languages.python3]
+        global_identifier_prefix="python3"

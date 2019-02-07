@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# import arghandler
+import arghandler
 import sys
 
 # The 'main' method for the static analyser, runs with a gui or cli
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
-        print("GUI MODE!!!")# GUI MODE
+        print("GUI MODE!!!") # GUI MODE
     else:
         # ap = argparse.ArgumentParser()
         # subparsers = ap.add_subparsers()
