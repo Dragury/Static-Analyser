@@ -4,7 +4,7 @@ from staticanalyser.shared.platform_constants import CONFIG_LOCATION
 from staticanalyser.shared.setup import setup
 
 # run the setup function to make sure that relevant dirs are in place before continuing
-setup()
+setup(True)
 
 _CONFIG_ITEMS = toml.load(CONFIG_LOCATION)
 __all__ = ['get_languages']
@@ -21,10 +21,16 @@ def _get_config_item_from_dict(item_key):
 
 def _get_config_item():
     config_key = sys._getframe(1).f_code.co_name[4:]
-    print(config_key)
+    return _get_config_item_from_dict(config_key)
+
+
 # CONFIG SUBFUNCTIONS END
 
 
 # START OF CONFIG OPTIONS
 def get_languages() -> object:
+    return _get_config_item()
+
+
+def get_filetypes() -> object:
     return _get_config_item()
