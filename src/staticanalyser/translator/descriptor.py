@@ -1,5 +1,6 @@
 from enum import Enum
 from os import path
+import re
 
 
 class PreprocessorDirectiveType(Enum):

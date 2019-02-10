@@ -1,0 +1,11 @@
+[directives]
+    [directives.force_single_line]
+        description = "Force statements to be on a single line rather than spread across multiple"
+        long_description = "Match specific symbols such as , and + and strip any surrounding newlines"
+        regex = "r/[ ]+\n?([+,])\n?[ ]+/ $1/"
+    [directives.strip_comments]
+        description = "Remove any comments from the code"
+        long_description = "Remove all of the comments from the code but leave the actual code untouched"
+        regex = "r/(.*)#.*/$1/"
+
+[selectors]

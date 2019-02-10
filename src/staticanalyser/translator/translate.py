@@ -6,6 +6,7 @@ def get_filetype(file_path) -> str:
     pass
 
 
-def translate(file_list) -> int:
-    available_filetypes = config.get_filetypes()
+def translate(file_list: list) -> int:
+    # TODO lookup filetypes
+    # TODO check current model
     pass
