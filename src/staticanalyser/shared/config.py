@@ -1,10 +1,6 @@
 import toml
 import sys
 from staticanalyser.shared.platform_constants import CONFIG_LOCATION
-from staticanalyser.shared.setup import setup
-
-# run the setup function to make sure that relevant dirs are in place before continuing
-setup(True)
 
 _CONFIG_ITEMS = toml.load(CONFIG_LOCATION)
 __all__ = ['get_languages']

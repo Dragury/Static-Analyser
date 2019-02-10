@@ -14,12 +14,12 @@ class Preprocessor(object):
         self._directives = directives
         self._file_path = file_path
 
-    def apply_directives(self):
+    def apply(self):
         pass  # TODO apply the preprocessor directives
 
 
 class DefaultDescriptor(object):
-    _statement_terminator: str = None
+    _syntax_descriptor: dict = {}
     _preprocess_directives: list = []
 
     def __init__(self, descriptor_path):
