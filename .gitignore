@@ -116,3 +116,6 @@ dmypy.json
 
 # Intellij
 .idea
+
+# Repo Specific
+.force_setup

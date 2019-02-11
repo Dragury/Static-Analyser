@@ -14,7 +14,7 @@ class SAInstaller(install):
     def __init__(self, *args, **kwargs):
         print("HELLLLOOOOOOO")
         super(SAInstaller, self).__init__(*args, **kwargs)
-        self.setup_config(True)
+        self.setup_config(opath.exists(opath.join(opath.dirname(__file__), ".force_setup")))
 
     def _create_directories(self, directories: list):
         for directory in directories:
