@@ -9,3 +9,5 @@
         regex = "r/(.*)#.*/$1/"
 
 [selectors]
+    [selectors.function]
+        description = "Selects functions"
