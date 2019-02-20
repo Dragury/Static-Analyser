@@ -11,3 +11,5 @@
 [selectors]
     [selectors.function]
         description = "Selects functions"
+    [selectors.class]
+        description = "Selects classes"
