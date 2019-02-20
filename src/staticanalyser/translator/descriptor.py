@@ -7,6 +7,19 @@ class PreprocessorDirectiveType(Enum):
     REGEX_REPLACE = 1
 
 
+class Directive(object):
+    _description: str = None
+    _long_description: str = None
+    _regex: str = None
+
+
+class Selector(object):
+    _description: str = None
+    _long_description: str = None
+    _regex: str = None
+    _subselectors: list = []
+
+
 class Preprocessor(object):
     _directives: list = []
     _file_path: path = None
@@ -23,7 +36,8 @@ class DefaultDescriptor(object):
     _syntax_descriptor: dict = {}
     _preprocess_directives: list = []
 
-    def __init__(self, descriptor_path):
+    def __init__(self, descriptor_path: path):
+        # Load the translation information from the lang file
         pass
 
     def preprocess(self):
