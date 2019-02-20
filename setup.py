@@ -47,7 +47,9 @@ setup(
         "arghandler",
         "toml"
     ],
-    packages_dir="src",
+    packages_dir={
+        '': 'src'
+    },
     packages=[
         "staticanalyser.hunter",
         "staticanalyser.shared",
