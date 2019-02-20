@@ -7,6 +7,8 @@
         description = "Remove any comments from the code"
         long_description = "Remove all of the comments from the code but leave the actual code untouched"
         regex = "r/(.*)#.*/$1/"
+    [directives.redecorate]
+        description = "Expand decorators around functions"
 
 [selectors]
     [selectors.function]
