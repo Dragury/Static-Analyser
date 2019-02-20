@@ -47,7 +47,7 @@ setup(
         "arghandler",
         "toml"
     ],
-    packages_dir={
+    package_dir={
         '': 'src'
     },
     packages=[
