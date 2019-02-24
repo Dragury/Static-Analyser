@@ -37,7 +37,7 @@ class SAInstaller(install):
     def setup_config(self) -> None:
         if not opath.exists(consts.GLOBAL_DATA_DIR):
             self._create_directories([consts.GLOBAL_DATA_DIR, consts.LANGS_DIR, consts.MODEL_DIR])
-            defaults_dir = opath.join(opath.dirname(opath.dirname(__file__)), "src", "staticanalyser", "defaults")
+            defaults_dir = opath.join(opath.dirname(__file__), "src", "staticanalyser", "defaults")
 
             self.copy_file(opath.join(defaults_dir, "default_config.toml"), consts.CONFIG_LOCATION)
             self.copy_file(opath.join(defaults_dir, "python3.toml"), opath.join(consts.LANGS_DIR, "python3.toml"))
