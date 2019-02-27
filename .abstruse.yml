@@ -1,0 +1,12 @@
+image: python3
+
+branches:
+  test:
+    - master
+    - dev
+
+before_script:
+  - python3 setup.py install
+
+script:
+  - python3 setup.py test

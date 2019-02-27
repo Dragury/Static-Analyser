@@ -1,5 +1,6 @@
 # The shared objects that are used by the translator and navigator entities
 from enum import Enum
+import json
 
 
 class ReferenceModel(str):
@@ -9,6 +10,7 @@ class ReferenceModel(str):
 
 class ModelGeneric(object):
     _global_identifier: ReferenceModel = None
+    _name: str = None
 
     def get_global_identifier(self):
         return self._global_identifier
@@ -41,7 +43,18 @@ class ConditionModel(object):
 
 
 class FunctionModel(ModelGeneric):
-    pass
+    def __init__(self, name: str, parameters: list, body: list):
+        self._name = name
+
+    def __str__(self):
+        return json.dumps(
+            {
+                "name":self._name,
+                "global_id": self.get_global_identifier(),
+                "parameters": None,
+                "body": None
+            }
+        )
 
 
 def load_model(global_id):

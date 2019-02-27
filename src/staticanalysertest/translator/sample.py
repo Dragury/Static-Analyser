@@ -9,6 +9,15 @@ class MyClass:
         print("Goodbye!")
 
 
+def my_decorator(func):
+    def inner(out):
+        print("I'm decorated!")
+        func(out)
+
+    return inner
+
+
+@my_decorator
 def my_method(output):
     print(output)
 

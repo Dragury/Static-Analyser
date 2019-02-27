@@ -1,11 +1,33 @@
 [directives]
     [directives.force_single_line]
         description = "Force statements to be on a single line rather than spread across multiple"
-        long_description = "Match specific symbols such as , and + and strip any surrounding newlines"
-        regex = "r/[ ]+\n?([+,])\n?[ ]+/ $1/"
+        regex_match = "[ ]+\\n?([+,])\\n?[ ]+"
+        regex_replace = " \\1"
     [directives.strip_comments]
         description = "Remove any comments from the code"
-        long_description = "Remove all of the comments from the code but leave the actual code untouched"
-        regex = "r/(.*)#.*/$1/"
+        regex_match = "(.*)#.*"
+        regex_replace = "\\1"
+    [directives.redecorate]
+        description = "Expand decorators around functions"
+        regex_match = "(\\s*)@([a-zA-Z_][-a-zA-Z0-9_]+)(\\((.+)\\))?\\n\\1(def\\s+([-a-zA-Z_][-a-zA-Z0-9_]*)\\((.*)\\):\\n((\\1\\s{4}.*\\n)+)\\n)" # TODO somehow allow tab width setting aha(prepreprocess config step) BUILD REGEX FROM PARTS, eg function def and then so-on
+        regex_replace = "\\1\\5\\n\\1\\2(\\6, \\4)\n"
+    [directives.redecorate_clean]
+        description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
+        regex_match = "([a-zA-Z_][-a-zA-Z0-9_]+)\\(((,?\\s*(([a-zA-Z_][-a-zA-Z0-9_]+)|(['\\\"].*['\\\"]))\\s*)+),\\s*\\)"
+        regex_replace = "\\1(\\2)"
+    [directives.strip_empty_lines]
+        description = "Removes any empty lines"
+        regex_match = "\\n\\s*\\n"
+        regex_replace = "\n"
 
 [selectors]
+    [selectors.function]
+        description = "Selects functions"
+        regex_match = "(\\s*)(def\\s+(\\S+)\\((.+):\\n((\\1\\s{4}.*\\n)+))"
+        name = 2
+        parameters = 3
+        body = 4
+        subselectors = ["function", "class", "statement"]
+    [selectors.class]
+        description = "Selects classes"
+        subselectors = ["attribute", "class", "function"]

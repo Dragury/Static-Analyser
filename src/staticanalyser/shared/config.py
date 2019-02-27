@@ -28,5 +28,13 @@ def get_languages() -> object:
     return _get_config_item()
 
 
+def get_languages_by_extension(extension: str) -> list:
+    languages: dict = get_filetypes()
+    if extension in languages.keys():
+        return languages.get(extension).get("languages")
+    else:
+        return [None]
+
+
 def get_filetypes() -> object:
     return _get_config_item()
