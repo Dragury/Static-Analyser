@@ -13,7 +13,7 @@ def translate_cmd(parser: ArgumentHandler, context, args):
     parser.add_argument("input_files", type=argparse.FileType('r'), nargs='+')
     # parser.add_argument("input_files", nargs='+')
     args = parser.parse_args(args)
-    translate(args)
+    translate(args.input_files)
 
 
 if __name__ == "__main__":

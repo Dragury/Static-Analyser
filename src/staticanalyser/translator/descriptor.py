@@ -3,6 +3,7 @@ from enum import Enum
 from os import path
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
+import staticanalyser.shared.model as model
 import re
 
 
@@ -73,9 +74,8 @@ class FunctionSelector(Selector):
     def select(self, file_contents: str) -> list:
         functions = re.findall(self._regex_match, file_contents)
         for function in functions:
-            print("function_name: {}".format(function[self._selection_name]))
-            print("function_parameters: [{}]".format(function[self._parameters]))
-            print("function_body: \n{}".format(function[self._body]))
+            func: model.FunctionModel = model.FunctionModel(function[self._selection_name], [], [])
+            print(func)
 
 
 class SelectorType(Enum):
@@ -113,14 +113,12 @@ class Descriptor(object):
         else:
             self._lang = language_name
             # TODO loading from lang files
-
-            language_file = open(path.join(LANGS_DIR, "{}.toml".format(language_name)),
-                                 "r")  # TODO push this into config or something
-            language_config = toml.load(language_file)
+            language_config = None
+            with open(path.join(LANGS_DIR, "{}.toml".format(language_name)), "r") as language_file:
+                language_config = toml.load(language_file)
 
             self._load_preprocessor(language_config.get("directives"))
             self._load_selectors(language_config.get("selectors"))
-            pass
 
     def _load_preprocessor(self, directives: dict):
         self._preprocessor = Preprocessor(directives)
@@ -142,6 +140,7 @@ class Descriptor(object):
         return self._lang
 
     def parse(self, file: TextIOWrapper):
+        # TODO check for local file so I know the namespace for where entities live(global vs local)
         file_contents: str = file.read()
         print("File before:")
         print(file_contents)

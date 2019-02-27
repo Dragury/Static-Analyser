@@ -15,18 +15,18 @@ def get_file_extension(entity: TextIOWrapper) -> str:
     return re.split(r'\.', entity.name)[-1] # TODO compile regex pattern for better performance
 
 
-def translate(translate_args: Namespace) -> int:
+def translate(input_files: list) -> int:
     extension_set: set = set()
     selected_parsers: set = set()
 
     f: TextIOWrapper
-    for f in translate_args.input_files:
+    for f in input_files:
         extension: str = get_file_extension(f)
         extension_set.add(extension)
         selected_parsers = selected_parsers.union(set(lookup_parser(extension)))
 
     # TODO create file list to iterate through
-    file_list: list = translate_args.input_files
+    file_list: list = input_files
 
     # TODO load descriptors
     for f in file_list:
@@ -34,7 +34,7 @@ def translate(translate_args: Namespace) -> int:
         if parser_options[0] is not None:
             selected_parser = descriptor.Descriptor(parser_options[0])
             selected_parser.parse(f)
-            print("Using {} to translate {}".format(selected_parser, f.name))
+            print("Using {} to translate {}".format(selected_parser, f.name)) # TODO switch to python logger
         else:
             print("No parser found for {}".format(f.name))
     # TODO save models
