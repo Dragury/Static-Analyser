@@ -30,4 +30,4 @@
         subselectors = ["function", "class", "statement"]
     [selectors.class]
         description = "Selects classes"
-        subselectors = ["function", "attribute"]
+        subselectors = ["attribute", "class", "function"]

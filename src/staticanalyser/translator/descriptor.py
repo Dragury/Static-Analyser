@@ -36,45 +36,66 @@ class Directive(object):
 
 
 class Selector(object):
+    _registered_selectors: dict = {}
     _name: str = None
     _selection_name: int = None
     _description: str = None
-    _subselectors: list = []
+    _subselectors: list = None
     _regex_match: str = None
 
     @staticmethod
-    def get_selector(name: str, data: dict):
-        if name == SelectorType.sa_function.value:
-            return FunctionSelector(name, data)
-        elif name == SelectorType.sa_class.value:
-            return None
+    def get_selector(language: str, name: str, data: dict):
+        if "{}.{}".format(language, name) not in Selector._registered_selectors.keys():
+            if name == SelectorType.sa_function.value:
+                Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
+            elif name == SelectorType.sa_class.value:
+                Selector._registered_selectors["{}.{}".format(language, name)] = None
+        return Selector._registered_selectors.get("{}.{}".format(language, name))
 
-    def __init__(self, name: str, data: dict):
+    @staticmethod
+    def get_selector_by_name(name: str):
+        return Selector._registered_selectors.get(name)
+
+    def __init__(self, language: str, name: str, data: dict):
         self._name = name
         self._description = data.get("description")
         self._regex_match = data.get("regex_match")
         self._selection_name = data.get("name")
+        if data.get("subselectors") is not None:
+            self._subselectors = ["{}.{}".format(language, sub) for sub in data.get("subselectors")]
+        else:
+            self._subselectors = []
 
     def __str__(self):
         return "{}: {}".format(self._name, self._description)
 
-    def select(self, file_contents: str) -> list:
-        pass
+    def select(self, file_contents: str, prefix: str = None) -> list:
+        for selector in self._subselectors:
+            s: Selector = Selector.get_selector_by_name(selector)
+            if s is not None:
+                s.select(file_contents)
 
 
 class FunctionSelector(Selector):
     _parameters: int = None
     _body: int = None
 
-    def __init__(self, name: str, data: dict):
-        super(FunctionSelector, self).__init__(name, data)
+    def __init__(self, language: str, name: str, data: dict):
+        super(FunctionSelector, self).__init__(language, name, data)
         self._parameters = data.get("parameters")
         self._body = data.get("body")
 
-    def select(self, file_contents: str) -> list:
+    def select(self, file_contents: str, prefix: str = None) -> list:
         functions = re.findall(self._regex_match, file_contents)
         for function in functions:
             func: model.FunctionModel = model.FunctionModel(function[self._selection_name], [], [])
+            sub_entities: list = super(FunctionSelector, self).select(
+                function[self._body],
+                prefix="{}.{}".format(
+                    prefix,
+                    function[self._selection_name]
+                )
+            )  # TODO deal with sub entities
             print(func)
 
 
@@ -125,7 +146,7 @@ class Descriptor(object):
 
     def _load_selectors(self, selectors: dict):
         for selector in selectors.keys():
-            self._selectors.append(Selector.get_selector(selector, selectors.get(selector)))
+            self._selectors.append(Selector.get_selector(self._lang, selector, selectors.get(selector)))
 
     def preprocess(self, file_contents: str) -> str:
         return self._preprocessor.apply(file_contents)
