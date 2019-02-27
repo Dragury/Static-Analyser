@@ -1,4 +1,5 @@
 from io import TextIOWrapper
+from enum import Enum
 from os import path
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
@@ -8,8 +9,8 @@ import re
 class Directive(object):
     _name: str = None
     _description: str = None
-    _regex_match: re.Pattern = None
-    _regex_replace: re.Pattern = None
+    _regex_match: str = None
+    _regex_replace: str = None
 
     def __init__(self, name: str, data: dict):
         self._name = name
@@ -34,10 +35,56 @@ class Directive(object):
 
 
 class Selector(object):
+    _name: str = None
+    _selection_name: int = None
     _description: str = None
-    _long_description: str = None
-    _regex: str = None
     _subselectors: list = []
+    _regex_match: str = None
+
+    @staticmethod
+    def get_selector(name: str, data: dict):
+        if name == SelectorType.sa_function.value:
+            return FunctionSelector(name, data)
+        elif name == SelectorType.sa_class.value:
+            return None
+
+    def __init__(self, name: str, data: dict):
+        self._name = name
+        self._description = data.get("description")
+        self._regex_match = data.get("regex_match")
+        self._selection_name = data.get("name")
+
+    def __str__(self):
+        return "{}: {}".format(self._name, self._description)
+
+    def select(self, file_contents: str) -> list:
+        pass
+
+
+class FunctionSelector(Selector):
+    _parameters: int = None
+    _body: int = None
+
+    def __init__(self, name: str, data: dict):
+        super(FunctionSelector, self).__init__(name, data)
+        self._parameters = data.get("parameters")
+        self._body = data.get("body")
+
+    def select(self, file_contents: str) -> list:
+        functions = re.findall(self._regex_match, file_contents)
+        for function in functions:
+            print("function_name: {}".format(function[self._selection_name]))
+            print("function_parameters: [{}]".format(function[self._parameters]))
+            print("function_body: \n{}".format(function[self._body]))
+
+
+class SelectorType(Enum):
+    sa_function = "function"
+    sa_class = "class"
+    _class_map: dict = {
+        sa_function: FunctionSelector,
+        sa_class: None  # TODO update for class selector
+    }
 
 
 class Preprocessor(object):
@@ -72,19 +119,24 @@ class Descriptor(object):
             language_config = toml.load(language_file)
 
             self._load_preprocessor(language_config.get("directives"))
+            self._load_selectors(language_config.get("selectors"))
             pass
 
     def _load_preprocessor(self, directives: dict):
         self._preprocessor = Preprocessor(directives)
 
     def _load_selectors(self, selectors: dict):
-        pass
+        for selector in selectors.keys():
+            self._selectors.append(Selector.get_selector(selector, selectors.get(selector)))
 
     def preprocess(self, file_contents: str) -> str:
         return self._preprocessor.apply(file_contents)
 
     def select(self, file_contents: str) -> list:
-        pass
+        selector: Selector
+        for selector in self._selectors:
+            if selector is not None:
+                selector.select(file_contents)
 
     def __str__(self):
         return self._lang
@@ -97,3 +149,4 @@ class Descriptor(object):
         print("File after:")
         print(file_contents)
         selected_entities: list = self.select(file_contents)
+        print(selected_entities)

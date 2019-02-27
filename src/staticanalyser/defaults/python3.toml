@@ -7,15 +7,22 @@
         description = "Remove any comments from the code"
         regex_match = "(.*)#.*"
         regex_replace = "\\1"
+    [directives.redecorate]
+        description = "Expand decorators around functions"
+        regex_match = "@(\\S+)\\((.+)\\)\\n(\\s*)(def\\s+(\\S+)\\(.+\\n(\\3\\s{4}.*\\n)+)" # TODO somehow allow tab width setting aha(prepreprocess config step)
+        regex_replace = "\\4\\n\\3\\1(\\5, \\2)\n"
     [directives.strip_empty_lines]
         description = "Removes any empty lines"
         regex_match = "\\n\\s*\\n"
         regex_replace = '\n'
-    [directives.redecorate]
-        description = "Expand decorators around functions"
 
 [selectors]
     [selectors.function]
         description = "Selects functions"
+        regex_match = "(\\s*)(def\\s+(\\S+)\\((.+):\\n((\\1\\s{4}.*\\n)+))"
+        name = 2
+        parameters = 3
+        body = 4
     [selectors.class]
         description = "Selects classes"
+        subselectors = ["function", "attribute"]
