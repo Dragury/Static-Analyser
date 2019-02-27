@@ -1,5 +1,6 @@
 from staticanalyser.shared.model import *
 import staticanalyser.shared.config as config
+import staticanalyser.translator.descriptor as descriptor
 from argparse import Namespace
 from os import path, getcwd
 from _io import TextIOWrapper
@@ -15,17 +16,30 @@ def get_file_extension(entity: TextIOWrapper) -> str:
 
 
 def translate(translate_args: Namespace) -> int:
-    # TODO lookup filetypes
     extension_set: set = set()
     selected_parsers: set = set()
 
-    entity: TextIOWrapper
-    for entity in translate_args.input_files:
-        extension: str = get_file_extension(entity)
+    f: TextIOWrapper
+    for f in translate_args.input_files:
+        extension: str = get_file_extension(f)
         extension_set.add(extension)
-        for parser in lookup_parser(extension):
-            selected_parsers.add(parser)
+        selected_parsers = selected_parsers.union(set(lookup_parser(extension)))
 
+    # TODO create file list to iterate through
+    file_list: list = translate_args.input_files
+
+    # TODO load descriptors
+    for f in file_list:
+        parser_options = lookup_parser(get_file_extension(f))
+        if parser_options[0] is not None:
+            selected_parser = descriptor.Descriptor(parser_options[0])
+            selected_parser.parse(f)
+            print("Using {} to translate {}".format(selected_parser, f.name))
+        else:
+            print("No parser found for {}".format(f.name))
+    # TODO save models
+
+    # TODO check against schema
 
     # TODO check current model
     return 0
