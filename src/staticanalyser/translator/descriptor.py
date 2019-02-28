@@ -5,8 +5,7 @@ import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
 import staticanalyser.shared.model as model
 import re
-from hashlib import md5
-
+import json
 
 class Directive(object):
     _name: str = None
@@ -37,6 +36,7 @@ class Directive(object):
 
 
 class Selector(object):
+    _lang: str = None
     _registered_selectors: dict = {}
     _name: str = None
     _selection_name: int = None
@@ -45,11 +45,14 @@ class Selector(object):
     _regex_match: str = None
     _top_level_selector: bool = None
 
+
+
     @staticmethod
     def get_selector(language: str, name: str, data: dict):
         if "{}.{}".format(language, name) not in Selector._registered_selectors.keys():
             if SelectorType.get_selector_class(name) is not None:
-                Selector._registered_selectors["{}.{}".format(language,name)] = SelectorType.get_selector_class(name)(language, name, data)
+                Selector._registered_selectors["{}.{}".format(language, name)] = SelectorType.get_selector_class(name)(
+                    language, name, data)
             # if name == SelectorType.sa_function.value:
             #     Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
             # elif name == SelectorType.sa_class.value:
@@ -62,7 +65,8 @@ class Selector(object):
         return Selector._registered_selectors.get(name)
 
     def __init__(self, language: str, name: str, data: dict):
-        self._name = name
+        self._name = "{}.{}".format(language, name)
+        self._lang = language
         self._description = data.get("description")
         self._regex_match = data.get("regex_match")
         self._selection_name = data.get("name")
@@ -75,14 +79,19 @@ class Selector(object):
     def __str__(self):
         return "{}: {}".format(self._name, self._description)
 
-    def select(self, file_contents: str, prefix: str = None) -> list:
+    def select(self, file_contents: str, prefix: str = "") -> dict:
+        res: dict = {}
         for selector in self._subselectors:
             s: Selector = Selector.get_selector_by_name(selector)
             if s is not None:
-                s.select(file_contents)
+                res[selector] = s.select(file_contents, prefix)
+        return res
 
     def get_is_top_level_selector(self) -> bool:
         return self._top_level_selector
+
+    def get_name(self) -> str:
+        return self._name
 
 
 class FunctionSelector(Selector):
@@ -94,26 +103,83 @@ class FunctionSelector(Selector):
         self._parameters = data.get("parameters")
         self._body = data.get("body")
 
-    def select(self, file_contents: str, prefix: str = None) -> list:
+    def select(self, file_contents: str, prefix: str = "") -> list:
         functions = re.findall(self._regex_match, file_contents)
-        function: dict
+        res: list = []
+        function: tuple
         for function in functions:
             function_name = function[self._selection_name]
-            function_params: list = function[self._parameters].split(',')
+            ps: ParameterSelector = Selector.get_selector_by_name("{}.{}".format(self._lang, "parameter"))
+            function_params: list = ps.select(function[self._parameters])
             function_body: list = function[self._body].split('\n')[:-1]
-            func: model.FunctionModel = model.FunctionModel(function_name, function_params, function_body)
-            sub_entities: list = super(FunctionSelector, self).select(
+            sub_entities: dict = super(FunctionSelector, self).select(
                 function[self._body],
                 prefix="{}.{}".format(
                     prefix,
                     function[self._selection_name]
                 )
             )  # TODO deal with sub entities
-            print(func)
+            func: model.FunctionModel = model.FunctionModel("{}.{}".format(prefix, function_name), function_params, function_body)
+            res.append(func)
+            print(func.flatten())
+            for sub_group in sub_entities.keys():
+                res += sub_entities.get(sub_group)
+        return res
 
 
 class ParameterSelector(Selector):
-    pass
+    _type: int = None
+    _default_value: int = None
+
+    def __init__(self, language: str, name: str, data: dict):
+        super(ParameterSelector, self).__init__(language, name, data)
+        self._type = data.get("type")
+        self._default_value = data.get("default_value")
+
+    def select(self, file_contents: str, prefix: str = "") -> list:
+        parameters: list = re.findall(self._regex_match, file_contents)
+        res: list = []
+        parameter: tuple
+        for parameter in parameters:
+            parameter_name: str = parameter[self._selection_name]
+            parameter_type: str = parameter[self._type]
+            parameter_default: str = parameter[self._default_value]
+
+            res.append(model.ParameterModel(
+                "{}.{}".format(prefix, parameter_name),
+                parameter_type,
+                parameter_default
+            ))
+        return res
+
+
+class ClassSelector(Selector):
+    _subclasses: int = None
+    _body: int = None
+
+    def __init__(self, language: str, name: str, data: dict):
+        super(ClassSelector, self).__init__(language, name, data)
+        self._subclasses = data.get("subclasses")
+        self._body = data.get("body")
+
+    def select(self, file_contents: str, prefix: str = ""):
+        klazzes: list = re.findall(self._regex_match, file_contents)
+        res: list = []
+        klazz: tuple
+        for klazz in klazzes:
+            klazz_name: str = klazz[self._selection_name]
+            klazz_subclasses: str = klazz[self._subclasses]
+            sub_entities: list = super(ClassSelector, self).select(
+                klazz[self._body],
+                prefix="{}.{}".format(
+                    prefix,
+                    klazz_name
+                )
+            )
+            klazz_model: model.ClassModel = model.ClassModel("{}.{}".format(prefix, klazz_name), sub_entities, klazz_subclasses)
+            res.append(klazz_model)
+            print(klazz_model.flatten())
+        return res
 
 
 class SelectorType(Enum):
@@ -122,9 +188,10 @@ class SelectorType(Enum):
     sa_parameter = "parameter"
     _class_map: dict = {
         sa_function: FunctionSelector,
-        sa_class: None,  # TODO update for class selector
+        sa_class: ClassSelector,
         sa_parameter: ParameterSelector
     }
+
     @staticmethod
     def get_selector_class(name: str) -> type:
         res: type = None
@@ -149,9 +216,9 @@ class Preprocessor(object):
 
 class Descriptor(object):
     _lang: str = None
-    _syntax_descriptor: dict = {}
+    _syntax_descriptor: dict = None
     _preprocessor: Preprocessor = None
-    _selectors: list = []
+    _selectors: list = None
 
     def __init__(self, language_name: str):
         if language_name is None:
@@ -170,20 +237,22 @@ class Descriptor(object):
         self._preprocessor = Preprocessor(directives)
 
     def _load_selectors(self, selectors: dict):
+        self._selectors = []
         for selector in selectors.keys():
             s: Selector = Selector.get_selector(self._lang, selector, selectors.get(selector))
             if s is not None and s.get_is_top_level_selector():
                 self._selectors.append(s)
-        pass
 
     def preprocess(self, file_contents: str) -> str:
         return self._preprocessor.apply(file_contents)
 
-    def select(self, file_contents: str) -> list:
+    def select(self, file_contents: str) -> dict:
+        res: dict = {}
         selector: Selector
         for selector in self._selectors:
             if selector is not None:
-                selector.select(file_contents)
+                res[selector.get_name()] = selector.select(file_contents)
+        return res
 
     def __str__(self):
         return self._lang
@@ -196,5 +265,12 @@ class Descriptor(object):
         file_contents = self.preprocess(file_contents)
         print("File after:")
         print(file_contents)
-        selected_entities: list = self.select(file_contents)
+        selected_entities: dict = self.select(file_contents)
         print(selected_entities)
+        with open("out.json", "w") as f:
+            group: str
+            for group in selected_entities.keys():
+                se: list = selected_entities.get(group)
+                for i in range(len(se)):
+                    se.append(se.pop(0).flatten())
+            print(json.dumps(selected_entities), file=f)

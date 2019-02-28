@@ -8,6 +8,9 @@ class MyClass:
         self.method_a()
         print("Goodbye!")
 
+class AnotherClass(MyClass):
+    def method_c(self, banana):
+        print(banana)
 
 def my_decorator(func):
     def inner(out):
@@ -21,6 +24,11 @@ def my_decorator(func):
 def my_method(output) -> None:
     print(output)
 
+def my_method_2() -> None:
+    print("hello!")
+
+def my_method_3() -> None:
+    print("hello!")
 
 if __name__ == "__main__":
     my_method("test")

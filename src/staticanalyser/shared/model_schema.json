@@ -1,3 +1,40 @@
 {
+  "$id": "pass",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "A representation of a model that has been extracted from code",
+  "type": "object",
+  "properties": {
 
+  },
+  "definitions": {
+    "function": {
+      "type": "object",
+      "properties": {
+        "global_id": {
+          "type": "string",
+          "description": "The location of the function in the global namespace"
+        },
+        "hash": {
+          "type": "string",
+          "description": "The md5 hash of the function body"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the function"
+        },
+        "parameters": {
+          "type": "array",
+          "description": "The parameters than can be passed to the function"
+        },
+        "body": {
+          "type": "array",
+          "description": "The body of the function"
+        },
+        "return_type": {
+          "type": "string",
+          "description": "The return type of the function"
+        }
+      }
+    }
+  }
 }
