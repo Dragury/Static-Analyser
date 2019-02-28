@@ -5,6 +5,7 @@ import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
 import staticanalyser.shared.model as model
 import re
+from hashlib import md5
 
 
 class Directive(object):
@@ -42,14 +43,18 @@ class Selector(object):
     _description: str = None
     _subselectors: list = None
     _regex_match: str = None
+    _top_level_selector: bool = None
 
     @staticmethod
     def get_selector(language: str, name: str, data: dict):
         if "{}.{}".format(language, name) not in Selector._registered_selectors.keys():
-            if name == SelectorType.sa_function.value:
-                Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
-            elif name == SelectorType.sa_class.value:
-                Selector._registered_selectors["{}.{}".format(language, name)] = None
+            if SelectorType.get_selector_class(name) is not None:
+                Selector._registered_selectors["{}.{}".format(language,name)] = SelectorType.get_selector_class(name)(language, name, data)
+            # if name == SelectorType.sa_function.value:
+            #     Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
+            # elif name == SelectorType.sa_class.value:
+            #     Selector._registered_selectors["{}.{}".format(language, name)] = None
+            # if
         return Selector._registered_selectors.get("{}.{}".format(language, name))
 
     @staticmethod
@@ -61,6 +66,7 @@ class Selector(object):
         self._description = data.get("description")
         self._regex_match = data.get("regex_match")
         self._selection_name = data.get("name")
+        self._top_level_selector = data.get("top_level_selector") == True
         if data.get("subselectors") is not None:
             self._subselectors = ["{}.{}".format(language, sub) for sub in data.get("subselectors")]
         else:
@@ -75,6 +81,9 @@ class Selector(object):
             if s is not None:
                 s.select(file_contents)
 
+    def get_is_top_level_selector(self) -> bool:
+        return self._top_level_selector
+
 
 class FunctionSelector(Selector):
     _parameters: int = None
@@ -87,8 +96,12 @@ class FunctionSelector(Selector):
 
     def select(self, file_contents: str, prefix: str = None) -> list:
         functions = re.findall(self._regex_match, file_contents)
+        function: dict
         for function in functions:
-            func: model.FunctionModel = model.FunctionModel(function[self._selection_name], [], [])
+            function_name = function[self._selection_name]
+            function_params: list = function[self._parameters].split(',')
+            function_body: list = function[self._body].split('\n')[:-1]
+            func: model.FunctionModel = model.FunctionModel(function_name, function_params, function_body)
             sub_entities: list = super(FunctionSelector, self).select(
                 function[self._body],
                 prefix="{}.{}".format(
@@ -99,13 +112,25 @@ class FunctionSelector(Selector):
             print(func)
 
 
+class ParameterSelector(Selector):
+    pass
+
+
 class SelectorType(Enum):
     sa_function = "function"
     sa_class = "class"
+    sa_parameter = "parameter"
     _class_map: dict = {
         sa_function: FunctionSelector,
-        sa_class: None  # TODO update for class selector
+        sa_class: None,  # TODO update for class selector
+        sa_parameter: ParameterSelector
     }
+    @staticmethod
+    def get_selector_class(name: str) -> type:
+        res: type = None
+        if name in SelectorType._class_map.value.keys():
+            res = SelectorType._class_map.value.get(name)
+        return res
 
 
 class Preprocessor(object):
@@ -146,7 +171,10 @@ class Descriptor(object):
 
     def _load_selectors(self, selectors: dict):
         for selector in selectors.keys():
-            self._selectors.append(Selector.get_selector(self._lang, selector, selectors.get(selector)))
+            s: Selector = Selector.get_selector(self._lang, selector, selectors.get(selector))
+            if s is not None and s.get_is_top_level_selector():
+                self._selectors.append(s)
+        pass
 
     def preprocess(self, file_contents: str) -> str:
         return self._preprocessor.apply(file_contents)

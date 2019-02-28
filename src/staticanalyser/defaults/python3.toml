@@ -9,8 +9,9 @@
         regex_replace = "\\1"
     [directives.redecorate]
         description = "Expand decorators around functions"
-        regex_match = "(\\s*)@([a-zA-Z_][-a-zA-Z0-9_]+)(\\((.+)\\))?\\n\\1(def\\s+([-a-zA-Z_][-a-zA-Z0-9_]*)\\((.*)\\):\\n((\\1\\s{4}.*\\n)+)\\n)" # TODO somehow allow tab width setting aha(prepreprocess config step) BUILD REGEX FROM PARTS, eg function def and then so-on
+        regex_match = "(\\s*)@([a-zA-Z_][-a-zA-Z0-9_]+)(\\((.+)\\))?\\n\\1(def\\s+([-a-zA-Z_][-a-zA-Z0-9_]*)\\((.*)\\)(\\s*->\\s*[a-zA-Z_][-a-zA-Z0-9_]+)?\\s*:\\n((\\1\\s{4}.*\\n)+)\\n)" # TODO somehow allow tab width setting aha(prepreprocess config step) BUILD REGEX FROM PARTS, eg function def and then so-on
         regex_replace = "\\1\\5\\n\\1\\2(\\6, \\4)\n"
+        # TODO sub strings for regex, e.g. clarity for function name matching, continually indented statements etc.
     [directives.redecorate_clean]
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
         regex_match = "([a-zA-Z_][-a-zA-Z0-9_]+)\\(((,?\\s*(([a-zA-Z_][-a-zA-Z0-9_]+)|(['\\\"].*['\\\"]))\\s*)+),\\s*\\)"
@@ -23,11 +24,26 @@
 [selectors]
     [selectors.function]
         description = "Selects functions"
-        regex_match = "(\\s*)(def\\s+(\\S+)\\((.+):\\n((\\1\\s{4}.*\\n)+))"
+        regex_match = "(\\s*)(def\\s+(\\S+)\\((.+)\\)(\\s*->\\s*([a-zA-Z_][-a-zA-Z0-9_]+))?\\s*:\\n((\\1\\s{4}.*\\n)+))"
+        top_level_selector = true
         name = 2
         parameters = 3
-        body = 4
+        body = 6
+        explicit_type = 5
         subselectors = ["function", "class", "statement"]
+    [selectors.parameter]
+        description = "Selects information pertaining to parameters"
+        regex_match = "(([a-zA-Z_][-a-zA-Z0-9_]+)\\s*(:\\s*([a-zA-Z_][-a-zA-Z0-9_]+))?(\\s*=\\s*([a-zA-Z_][-a-zA-Z0-9_]+|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
+        top_level_selector = false
+        name = 2
+        type = 4
+        default_value = 6
     [selectors.class]
         description = "Selects classes"
+        top_level_selector = true
         subselectors = ["attribute", "class", "function"]
+
+[info]
+    description = "Support for the python3 language"
+    file_extensions = [".py", ".pyw"]
+    sources = []

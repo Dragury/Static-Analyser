@@ -18,7 +18,7 @@ def my_decorator(func):
 
 
 @my_decorator
-def my_method(output):
+def my_method(output) -> None:
     print(output)
 
 
