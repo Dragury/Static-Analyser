@@ -63,6 +63,8 @@ class RegexBuilder(object):
         return True
 
     def build(self, format_string: str) -> str:
+        if self._check_snippet(format_string):
+            return self._registered_snippets.get(format_string)
         if format_string not in self._registered_format_strings.keys():
             raise KeyError()
         selected_string: FormatString = self._registered_format_strings.get(format_string)
