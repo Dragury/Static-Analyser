@@ -77,7 +77,7 @@ class RegexBuilder(object):
         found_patterns = re.findall("{{\s*([a-zA-Z_][-a-zA-Z0-9_]+)\s*}}", str(selected_string))
         for s in found_patterns:
             if not self._check_snippet(s, [local_namespace]):
-                found_patterns.remove(s)
+                pass
             else:
                 repl: str = None
                 if s in local_namespace.keys():

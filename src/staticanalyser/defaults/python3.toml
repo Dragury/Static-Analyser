@@ -7,6 +7,8 @@
         regex = "[ \t]+\\n?([+,])\\n?[ \t]+"
     [snippets.empty_line]
         regex = "\\n\\s*\\n"
+    [snippets.statement]
+        regex = "(\\1\\s{4}.*\\n)"
 
 [format_strings]
     [format_strings.decorator]
@@ -16,16 +18,17 @@
     [format_strings.return_type]
         regex = "\\s*->\\s*({{name}})"
     [format_strings.function]
-        regex = "(\\s*)(def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:\\n((\\1\\s{4}.*\\n)+))"
+        regex = "(\\s*)(def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:\\n({{statement}}+))"
+        dependencies = ["return_type"]
     [format_strings.decorated_function]
-        regex = "(\\s*)@([a-zA-Z_][-a-zA-Z0-9_]+)(\\((.+)\\))?\\n\\1({{function}}\\n)"
+        regex = "(\\s*)@({{name}})(\\((.+)\\))?\\n\\1({{function}}\\n)"
         dependencies = ["function"]
     [format_strings.decorator_call]
         regex = "({{name}})\\(((,?\\s*(({{name}})|(['\\\"].*['\\\"]))\\s*)+),\\s*\\)"
     [format_strings.parameter]
-        regex = "(([a-zA-Z_][-a-zA-Z0-9_]+)\\s*(:\\s*([a-zA-Z_][-a-zA-Z0-9_]+))?(\\s*=\\s*([a-zA-Z_][-a-zA-Z0-9_]+|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
+        regex = "(({{name}})\\s*(:\\s*({{name}}))?(\\s*=\\s*({{name}}|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
     [format_strings.class]
-        regex = "(\\s*)?class\\s+([a-zA-Z_][-a-zA-Z0-9_]+)(\\((.+)?\\))?:\\n((\\1\\s{4}.*\\n)+)"
+        regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{statement}}+)"
 
 
 [directives]
