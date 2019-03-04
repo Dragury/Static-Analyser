@@ -43,7 +43,7 @@
     [directives.redecorate]
         description = "Expand decorators around functions"
         regex_format_string = "decorated_function"
-        regex_replace = "\\1\\5\\n\\1\\2(\\6, \\4)\n"
+        regex_replace = "\\1\\5\\n\\1\\2(\\8, \\4)\n"
         # TODO sub strings for regex, e.g. clarity for function name matching, continually indented statements etc.
     [directives.redecorate_clean]
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
