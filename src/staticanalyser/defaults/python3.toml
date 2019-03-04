@@ -1,10 +1,16 @@
 [snippets]
     [snippets.name]
         regex = "[a-zA-Z_][-a-zA-Z0-9_]+"
+    [snippets.string]
+        regex = "\\\"[^\\\"\\n]\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]'|'''[.\\n]*'''"
+    [snippets.number]
+        regex = "0x[0-9ABCDEF]+|[0-9]+\\.[0-9]+|\\.[0-9]+"
+    [snippets.boolean]
+        regex = "True|False"
     [snippets.comment]
         regex = "#.*"
     [snippets.multiline_statement]
-        regex = "[ \t]+\\n?([+,])\\n?[ \t]+"
+        regex = "[ \\t]+\\n?([+,])\\n?[ \\t]+"
     [snippets.empty_line]
         regex = "\\n\\s*\\n"
     [snippets.statement]
@@ -29,6 +35,13 @@
         regex = "(({{name}})\\s*(:\\s*({{name}}))?(\\s*=\\s*({{name}}|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
     [format_strings.class]
         regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{statement}}+)"
+    [format_strings.attribute]
+        regex = "(\\s*)?{{name}}\\s*(:\\s*{{name}}\\s*)=(\\s*)"
+    [format_strings.value]
+        regex = "({{name}}|{{string}}|{{number}}|{{boolean}})"
+
+    [format_strings.undefined]
+        regex = "bvfghnbvfghjkiuhjnhbvfddsxc"
 
 
 [directives]
@@ -44,7 +57,6 @@
         description = "Expand decorators around functions"
         regex_format_string = "decorated_function"
         regex_replace = "\\1\\5\\n\\1\\2(\\8, \\4)\n"
-        # TODO sub strings for regex, e.g. clarity for function name matching, continually indented statements etc.
     [directives.redecorate_clean]
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
         regex_format_string = "decorator_call"
@@ -74,11 +86,16 @@
     [selectors.class]
         description = "Selects classes"
         regex_format_string = "class"
+        top_level_selector = true
         name = 1
         body = 4
         subclasses = 3
-        top_level_selector = true
         subselectors = ["attribute", "class", "function"]
+    [selectors.attribute]
+        description = "selects attributes under classes"
+        regex_format_string = "attribute"
+        top_level_selector = false
+
 
 [info]
     description = "Support for the python3 language"
