@@ -4,8 +4,10 @@ from os import path
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
 import staticanalyser.shared.model as model
+from staticanalyser.regexbuilder import *
 import re
 import json
+
 
 class Directive(object):
     _name: str = None
@@ -13,17 +15,11 @@ class Directive(object):
     _regex_match: str = None
     _regex_replace: str = None
 
-    def __init__(self, name: str, data: dict):
+    def __init__(self, name: str, regex_match: str, data: dict):
         self._name = name
         self._description = data.get("description")
-        self._load_regex(data)
-
-    def _load_regex(self, data: dict):
-        if "regex_match" in data.keys():
-            self._regex_match = data.get("regex_match")
-            self._regex_replace = data.get("regex_replace")
-        else:
-            print("This directive doesn't have it's regex populated!")
+        self._regex_replace = data.get("regex_replace")
+        self._regex_match = regex_match
 
     def __str__(self):
         return "{}: {}".format(self._name, self._description)
@@ -45,14 +41,12 @@ class Selector(object):
     _regex_match: str = None
     _top_level_selector: bool = None
 
-
-
     @staticmethod
-    def get_selector(language: str, name: str, data: dict):
+    def get_selector(language: str, name: str, format_string: str, data: dict):
         if "{}.{}".format(language, name) not in Selector._registered_selectors.keys():
             if SelectorType.get_selector_class(name) is not None:
                 Selector._registered_selectors["{}.{}".format(language, name)] = SelectorType.get_selector_class(name)(
-                    language, name, data)
+                    language, name, format_string, data)
             # if name == SelectorType.sa_function.value:
             #     Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
             # elif name == SelectorType.sa_class.value:
@@ -64,11 +58,11 @@ class Selector(object):
     def get_selector_by_name(name: str):
         return Selector._registered_selectors.get(name)
 
-    def __init__(self, language: str, name: str, data: dict):
+    def __init__(self, language: str, name: str, format_string: str, data: dict):
         self._name = "{}.{}".format(language, name)
         self._lang = language
         self._description = data.get("description")
-        self._regex_match = data.get("regex_match")
+        self._regex_match = format_string
         self._selection_name = data.get("name")
         self._top_level_selector = data.get("top_level_selector") == True
         if data.get("subselectors") is not None:
@@ -98,8 +92,8 @@ class FunctionSelector(Selector):
     _parameters: int = None
     _body: int = None
 
-    def __init__(self, language: str, name: str, data: dict):
-        super(FunctionSelector, self).__init__(language, name, data)
+    def __init__(self, language: str, name: str, format_string: str, data: dict):
+        super(FunctionSelector, self).__init__(language, name, format_string, data)
         self._parameters = data.get("parameters")
         self._body = data.get("body")
 
@@ -119,7 +113,8 @@ class FunctionSelector(Selector):
                     function[self._selection_name]
                 )
             )  # TODO deal with sub entities
-            func: model.FunctionModel = model.FunctionModel("{}.{}".format(prefix, function_name), function_params, function_body)
+            func: model.FunctionModel = model.FunctionModel("{}.{}".format(prefix, function_name), function_params,
+                                                            function_body)
             res.append(func)
             print(func.flatten())
             for sub_group in sub_entities.keys():
@@ -131,8 +126,8 @@ class ParameterSelector(Selector):
     _type: int = None
     _default_value: int = None
 
-    def __init__(self, language: str, name: str, data: dict):
-        super(ParameterSelector, self).__init__(language, name, data)
+    def __init__(self, language: str, name: str, format_string: str, data: dict):
+        super(ParameterSelector, self).__init__(language, name, format_string, data)
         self._type = data.get("type")
         self._default_value = data.get("default_value")
 
@@ -157,8 +152,8 @@ class ClassSelector(Selector):
     _subclasses: int = None
     _body: int = None
 
-    def __init__(self, language: str, name: str, data: dict):
-        super(ClassSelector, self).__init__(language, name, data)
+    def __init__(self, language: str, name: str, format_string: str, data: dict):
+        super(ClassSelector, self).__init__(language, name, format_string, data)
         self._subclasses = data.get("subclasses")
         self._body = data.get("body")
 
@@ -176,7 +171,8 @@ class ClassSelector(Selector):
                     klazz_name
                 )
             )
-            klazz_model: model.ClassModel = model.ClassModel("{}.{}".format(prefix, klazz_name), sub_entities, klazz_subclasses)
+            klazz_model: model.ClassModel = model.ClassModel("{}.{}".format(prefix, klazz_name), sub_entities,
+                                                             klazz_subclasses)
             res.append(klazz_model)
             print(klazz_model.flatten())
         return res
@@ -203,22 +199,32 @@ class SelectorType(Enum):
 class Preprocessor(object):
     _directives: list = []
 
-    def __init__(self, directives: dict):
+    def __init__(self, directives: dict, regex_builder: RegexBuilder):
         for directive in directives.keys():
-            self._directives.append(Directive(directive, directives.get(directive)))
+            regex_match: str = regex_builder.build(directives[directive]["regex_format_string"])
+            self._directives.append(Directive(directive, regex_match, directives.get(directive)))
 
     def apply(self, file_contents: str):
         directive: Directive
         for directive in self._directives:
+            print(directive)
             file_contents = directive.apply(file_contents)
         return file_contents
 
 
 class Descriptor(object):
+    _descriptors: dict = {}
     _lang: str = None
     _syntax_descriptor: dict = None
     _preprocessor: Preprocessor = None
     _selectors: list = None
+    _regex_builder: RegexBuilder = None
+
+    @staticmethod
+    def get_descriptor(language: str):
+        if language not in Descriptor._descriptors.keys():
+            Descriptor._descriptors[language] = Descriptor(language)
+        return Descriptor._descriptors[language]
 
     def __init__(self, language_name: str):
         if language_name is None:
@@ -230,16 +236,30 @@ class Descriptor(object):
             with open(path.join(LANGS_DIR, "{}.toml".format(language_name)), "r") as language_file:
                 language_config = toml.load(language_file)
 
+            self._configure_regex_builder(language_config.get("snippets"), language_config.get("format_strings"))
             self._load_preprocessor(language_config.get("directives"))
             self._load_selectors(language_config.get("selectors"))
 
+    def _configure_regex_builder(self, snippets: dict, format_strings: dict):
+        r = RegexBuilder()
+        for s in snippets.keys():
+            r.register_snippet(s, snippets[s]["regex"])
+        for f in format_strings.keys():
+            deps = []
+            if "dependencies" in format_strings[f].keys():
+                deps = format_strings[f]["dependencies"]
+            r.register_format_string(f, format_strings[f]["regex"], deps)
+        self._regex_builder = r
+
     def _load_preprocessor(self, directives: dict):
-        self._preprocessor = Preprocessor(directives)
+        self._preprocessor = Preprocessor(directives, self._regex_builder)
 
     def _load_selectors(self, selectors: dict):
         self._selectors = []
         for selector in selectors.keys():
-            s: Selector = Selector.get_selector(self._lang, selector, selectors.get(selector))
+            print(selectors[selector]["regex_format_string"])
+            format_string: str = self._regex_builder.build(selectors[selector]["regex_format_string"])
+            s: Selector = Selector.get_selector(self._lang, selector, format_string, selectors.get(selector))
             if s is not None and s.get_is_top_level_selector():
                 self._selectors.append(s)
 

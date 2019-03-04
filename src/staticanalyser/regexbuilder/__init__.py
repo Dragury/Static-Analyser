@@ -58,7 +58,6 @@ class RegexBuilder(object):
         for d in [*alternative_dicts, self._registered_snippets]:
             all_keys = [*all_keys, *d.keys()]
         if name not in all_keys:
-            print("{name} not found in known snippets!".format(name=name))  # TODO switch to logging
             return False
         return True
 
