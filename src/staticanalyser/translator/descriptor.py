@@ -7,6 +7,7 @@ import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
 import re
 import json
+from copy import deepcopy
 
 
 class Directive(object):
@@ -306,6 +307,10 @@ class Descriptor(object):
         return self._lang
 
     def parse(self, file: TextIOWrapper):
+        temp_map: dict = {
+            "function": "functions",
+            "class": "classes"
+        }
         # TODO check for local file so I know the namespace for where entities live(global vs local)
         file_contents: str = file.read()
         print("File before:")
@@ -321,4 +326,8 @@ class Descriptor(object):
                 se: list = selected_entities.get(group)
                 for i in range(len(se)):
                     se.append(se.pop(0).flatten())
+            k: list = [*selected_entities.keys()]
+            for key in k:
+                selected_entities[temp_map.get(key.split(".")[-1:][0])] = selected_entities[key]
+                del selected_entities[key]
             print(json.dumps(selected_entities), file=f)
