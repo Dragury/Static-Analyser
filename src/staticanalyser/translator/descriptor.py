@@ -113,7 +113,7 @@ class FunctionSelector(Selector):
                     function[self._selection_name]
                 )
             )  # TODO deal with sub entities
-            func: model.FunctionModel = model.FunctionModel("{}.{}".format(prefix, function_name), function_params,
+            func: model.FunctionModel = model.FunctionModel(self._lang, "{}.{}".format(prefix, function_name), function_params,
                                                             function_body)
             res.append(func)
             print(func.flatten())
@@ -140,7 +140,8 @@ class ParameterSelector(Selector):
             parameter_type: str = parameter[self._type]
             parameter_default: str = parameter[self._default_value]
 
-            res.append(model.ParameterModel(
+            res.append(model.VariableModel(
+                self._lang,
                 "{}.{}".format(prefix, parameter_name),
                 parameter_type,
                 parameter_default
@@ -164,17 +165,42 @@ class ClassSelector(Selector):
         for klazz in klazzes:
             klazz_name: str = klazz[self._selection_name]
             klazz_subclasses: str = klazz[self._subclasses]
-            sub_entities: list = super(ClassSelector, self).select(
+            sub_entities: dict = super(ClassSelector, self).select(
                 klazz[self._body],
                 prefix="{}.{}".format(
                     prefix,
                     klazz_name
                 )
             )
-            klazz_model: model.ClassModel = model.ClassModel("{}.{}".format(prefix, klazz_name), sub_entities,
-                                                             klazz_subclasses)
+            klazz_model: model.ClassModel = model.ClassModel(self._lang, "{}.{}".format(prefix, klazz_name), [], sub_entities)
             res.append(klazz_model)
             print(klazz_model.flatten())
+        return res
+
+class AttributeSelector(Selector):
+    _type: int = None
+    _initial_value: int = None
+
+    def __init__(self, language: str, name: str, format_string: str, data: dict):
+        super(AttributeSelector, self).__init__(language, name, format_string, data)
+        self._type = data.get("type")
+        self._initial_value = data.get("initial_value")
+
+    def select(self, file_contents: str, prefix: str = ""):
+        attributes: list = re.findall(self._regex_match, file_contents)
+
+        res: list = []
+        for attribute in attributes:
+            attribute_name: str = attribute[self._selection_name]
+            attribute_type: str = attribute[self._type]
+            attribute_value: str = attribute[self._initial_value]
+            attribute_model: model.VariableModel = model.VariableModel(
+                self._lang,
+                "{}.{}".format(prefix, attribute_name),
+                attribute_type,
+                attribute_value
+            )
+            res.append(attribute_model)
         return res
 
 
@@ -182,10 +208,12 @@ class SelectorType(Enum):
     sa_function = "function"
     sa_class = "class"
     sa_parameter = "parameter"
+    sa_attribute = "attribute"
     _class_map: dict = {
         sa_function: FunctionSelector,
         sa_class: ClassSelector,
-        sa_parameter: ParameterSelector
+        sa_parameter: ParameterSelector,
+        sa_attribute: AttributeSelector
     }
 
     @staticmethod

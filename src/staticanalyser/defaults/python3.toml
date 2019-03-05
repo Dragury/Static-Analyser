@@ -4,7 +4,7 @@
     [snippets.string]
         regex = "\\\"[^\\\"\\n]\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]'|'''[.\\n]*'''"
     [snippets.number]
-        regex = "0x[0-9ABCDEF]+|[0-9]+\\.[0-9]+|\\.[0-9]+"
+        regex = "0x[0-9ABCDEF]+|-?[0-9]+\\.[0-9]+|-?\\.[0-9]+|-?[0-9]+"
     [snippets.boolean]
         regex = "True|False"
     [snippets.comment]
@@ -36,7 +36,8 @@
     [format_strings.class]
         regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{statement}}+)"
     [format_strings.attribute]
-        regex = "(\\s*)?{{name}}\\s*(:\\s*{{name}}\\s*)=(\\s*)"
+        regex = "(\\s*)?({{name}})\\s*(:\\s*({{name}})\\s*)?=\\s*{{value}}"
+        dependencies = ["value"]
     [format_strings.value]
         regex = "({{name}}|{{string}}|{{number}}|{{boolean}})"
 
@@ -95,6 +96,9 @@
         description = "selects attributes under classes"
         regex_format_string = "attribute"
         top_level_selector = false
+        name = 1
+        type = 3
+        initial_value = 4
 
 
 [info]

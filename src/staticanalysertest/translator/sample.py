@@ -1,6 +1,8 @@
 # A basic python script for testing the translation
 
 class MyClass:
+    _attribute_A = 1
+    _attribute_B: int = 2
     def method_a(self):
         print("Hello!")
 
