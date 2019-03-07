@@ -7,7 +7,26 @@ import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
 import re
 import json
-from copy import deepcopy
+
+
+class RegexBuilderFactory(object):
+    _builders: dict = {}
+
+    @staticmethod
+    def get_builder(lang: str, snippets: dict, format_strings: dict):
+        r: RegexBuilder
+        if RegexBuilderFactory._builders.get(lang) is None:
+            r = RegexBuilder()
+            for s in snippets.keys():
+                r.register_snippet(s, snippets[s]["regex"])
+            for f in format_strings.keys():
+                deps = []
+                if "dependencies" in format_strings[f].keys():
+                    deps = format_strings[f]["dependencies"]
+                r.register_format_string(f, format_strings[f]["regex"], deps)
+        else:
+            r = RegexBuilderFactory._builders.get(lang)
+        return r
 
 
 class Directive(object):
@@ -39,15 +58,15 @@ class Selector(object):
     _selection_name: int = None
     _description: str = None
     _subselectors: list = None
-    _regex_match: str = None
+    _regex_matches: list = None
     _top_level_selector: bool = None
+    _model_type: type = None
 
     @staticmethod
-    def get_selector(language: str, name: str, format_string: str, data: dict):
+    def get_selector(language: str, name: str, data: dict):
         if "{}.{}".format(language, name) not in Selector._registered_selectors.keys():
             if SelectorType.get_selector_class(name) is not None:
-                Selector._registered_selectors["{}.{}".format(language, name)] = SelectorType.get_selector_class(name)(
-                    language, name, format_string, data)
+                Selector._registered_selectors["{}.{}".format(language, name)] = Selector(language, name, data)
             # if name == SelectorType.sa_function.value:
             #     Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
             # elif name == SelectorType.sa_class.value:
@@ -59,20 +78,21 @@ class Selector(object):
     def get_selector_by_name(name: str):
         return Selector._registered_selectors.get(name)
 
-    def __init__(self, language: str, name: str, format_string: str, data: dict):
-        self._name = "{}.{}".format(language, name)
+    def __init__(self, language: str, name: str, format_string: list, data: dict):
+        self._model_type = mtype
+        self._name = name
         self._lang = language
         self._description = data.get("description")
         self._regex_match = format_string
         self._selection_name = data.get("name")
-        self._top_level_selector = data.get("top_level_selector") == True
+        self._top_level_selector = data.get("top_level_selector")
         if data.get("subselectors") is not None:
             self._subselectors = ["{}.{}".format(language, sub) for sub in data.get("subselectors")]
         else:
             self._subselectors = []
 
     def __str__(self):
-        return "{}: {}".format(self._name, self._description)
+        return "{}: {}".format("{}.{}".format(self._lang, self._name), self._description)
 
     def select(self, file_contents: str, prefix: str = "") -> dict:
         res: dict = {}
@@ -87,6 +107,9 @@ class Selector(object):
 
     def get_name(self) -> str:
         return self._name
+
+    def get_qualified_name(self) -> str:
+        return "{}.{}".format(self._lang, self._name)
 
 
 class FunctionSelector(Selector):
@@ -114,7 +137,8 @@ class FunctionSelector(Selector):
                     function[self._selection_name]
                 )
             )  # TODO deal with sub entities
-            func: model.FunctionModel = model.FunctionModel(self._lang, "{}.{}".format(prefix, function_name), function_params,
+            func: model.FunctionModel = model.FunctionModel(self._lang, "{}.{}".format(prefix, function_name),
+                                                            function_params,
                                                             function_body)
             res.append(func)
             print(func.flatten())
@@ -173,10 +197,12 @@ class ClassSelector(Selector):
                     klazz_name
                 )
             )
-            klazz_model: model.ClassModel = model.ClassModel(self._lang, "{}.{}".format(prefix, klazz_name), [], sub_entities)
+            klazz_model: model.ClassModel = model.ClassModel(self._lang, "{}.{}".format(prefix, klazz_name), [],
+                                                             sub_entities)
             res.append(klazz_model)
             print(klazz_model.flatten())
         return res
+
 
 class AttributeSelector(Selector):
     _type: int = None
@@ -226,9 +252,12 @@ class SelectorType(Enum):
 
 
 class Preprocessor(object):
-    _directives: list = []
+    _lang: str = None
+    _directives: list = None
 
-    def __init__(self, directives: dict, regex_builder: RegexBuilder):
+    def __init__(self, lang: str, directives: dict, regex_builder: RegexBuilder):
+        self._directives = []
+        self._lang = lang
         for directive in directives.keys():
             regex_match: str = regex_builder.build(directives[directive]["regex_format_string"])
             self._directives.append(Directive(directive, regex_match, directives.get(directive)))
@@ -247,7 +276,6 @@ class Descriptor(object):
     _syntax_descriptor: dict = None
     _preprocessor: Preprocessor = None
     _selectors: list = None
-    _regex_builder: RegexBuilder = None
 
     @staticmethod
     def get_descriptor(language: str):
@@ -270,25 +298,15 @@ class Descriptor(object):
             self._load_selectors(language_config.get("selectors"))
 
     def _configure_regex_builder(self, snippets: dict, format_strings: dict):
-        r = RegexBuilder()
-        for s in snippets.keys():
-            r.register_snippet(s, snippets[s]["regex"])
-        for f in format_strings.keys():
-            deps = []
-            if "dependencies" in format_strings[f].keys():
-                deps = format_strings[f]["dependencies"]
-            r.register_format_string(f, format_strings[f]["regex"], deps)
-        self._regex_builder = r
+        RegexBuilderFactory.get_builder(self._lang, snippets, format_strings)
 
     def _load_preprocessor(self, directives: dict):
-        self._preprocessor = Preprocessor(directives, self._regex_builder)
+        self._preprocessor = Preprocessor(self._lang, directives)
 
     def _load_selectors(self, selectors: dict):
         self._selectors = []
         for selector in selectors.keys():
-            print(selectors[selector]["regex_format_string"])
-            format_string: str = self._regex_builder.build(selectors[selector]["regex_format_string"])
-            s: Selector = Selector.get_selector(self._lang, selector, format_string, selectors.get(selector))
+            s: Selector = Selector.get_selector(self._lang, selector, selectors.get(selector))
             if s is not None and s.get_is_top_level_selector():
                 self._selectors.append(s)
 
@@ -300,7 +318,7 @@ class Descriptor(object):
         selector: Selector
         for selector in self._selectors:
             if selector is not None:
-                res[selector.get_name()] = selector.select(file_contents)
+                res[selector.get_qualified_name()] = selector.select(file_contents)
         return res
 
     def __str__(self):

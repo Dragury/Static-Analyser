@@ -46,7 +46,6 @@
     [format_strings.undefined]
         regex = "bvfghnbvfghjkiuhjnhbvfddsxc"
 
-
 [directives]
     [directives.force_single_line]
         description = "Force statements to be on a single line rather than spread across multiple"
@@ -72,41 +71,42 @@
 [selectors]
     [selectors.function]
         description = "Selects functions"
-        regex_format_string = "function"
         top_level_selector = true
-        name = 2
-        parameters = 3
-        body = 6
-        explicit_type = 5
+        variations = [
+            {regex_format_string = "function", name = 2, parameters = 3, body = 6, explicit_type = 5}
+        ]
         subselectors = ["function", "class", "statement"]
     [selectors.parameter]
         description = "Selects information pertaining to parameters"
-        regex_format_string = "parameter"
         top_level_selector = false
-        name = 1
-        type = 3
-        default_value = 5
+        variations = [
+            {regex_format_string = "parameter", name = 1, type = 3, default_value = 5}
+        ]
     [selectors.class]
         description = "Selects classes"
-        regex_format_string = "class"
         top_level_selector = true
-        name = 1
-        body = 4
-        subclasses = 3
+        variations = [
+            {regex_format_string = "class", name = 1, body = 4, subclasses = 3}
+        ]
         subselectors = ["attribute", "class", "function"]
     [selectors.attribute]
         description = "selects attributes under classes"
-        regex_format_string = "attribute"
         top_level_selector = false
-        name = 1
-        type = 3
-        initial_value = 4
+        variations = [
+            {regex_format_string = "attribute", name = 1, type = 3, initial_value = 4}
+        ]
     [selectors.statement]
         description = "selects statements from a string without whitespace prefix"
-        regex_format_string = "bare_statement"
         top_level_selector = false
-        statement = 1
-
+        variations = [
+            {regex_format_string = "bare_statement", statement = 1}
+        ]
+    [selectors.import]
+        description = "selects import statements"
+        top_level_selector = true
+        variations = [
+            {regex_format_string = "undefined"}
+        ]
 
 [info]
     description = "Support for the python3 language"
