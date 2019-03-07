@@ -13,7 +13,7 @@ class RegexBuilderFactory(object):
     _builders: dict = {}
 
     @staticmethod
-    def get_builder(lang: str, snippets: dict, format_strings: dict):
+    def get_builder(lang: str, snippets: dict = {}, format_strings: dict = {}):
         r: RegexBuilder
         if RegexBuilderFactory._builders.get(lang) is None:
             r = RegexBuilder()
@@ -24,6 +24,7 @@ class RegexBuilderFactory(object):
                 if "dependencies" in format_strings[f].keys():
                     deps = format_strings[f]["dependencies"]
                 r.register_format_string(f, format_strings[f]["regex"], deps)
+            RegexBuilderFactory._builders[lang] = r
         else:
             r = RegexBuilderFactory._builders.get(lang)
         return r
@@ -32,23 +33,27 @@ class RegexBuilderFactory(object):
 class Directive(object):
     _name: str = None
     _description: str = None
-    _regex_match: str = None
-    _regex_replace: str = None
+    _variations: list = None
+    _lang: str = None
 
-    def __init__(self, name: str, regex_match: str, data: dict):
+    def __init__(self, language: str, name: str, data: dict):
         self._name = name
         self._description = data.get("description")
-        self._regex_replace = data.get("regex_replace")
-        self._regex_match = regex_match
+        self._variations = data.get("variations")
+        self._lang = language
 
     def __str__(self):
         return "{}: {}".format(self._name, self._description)
 
     def apply(self, file_contents: str) -> str:
-        if self._regex_match is not None:
-            return re.sub(self._regex_match, self._regex_replace, file_contents)
-        else:
-            return file_contents
+        r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
+        for v in self._variations:
+            file_contents = re.sub(
+                r.build(v.get("regex_format_string")),
+                v.get("regex_replace"),
+                file_contents
+            )
+        return file_contents
 
 
 class Selector(object):
@@ -57,49 +62,63 @@ class Selector(object):
     _name: str = None
     _selection_name: int = None
     _description: str = None
-    _subselectors: list = None
-    _regex_matches: list = None
+    _subselectors: dict = None
+    _variations: list = None
     _top_level_selector: bool = None
     _model_type: type = None
 
     @staticmethod
     def get_selector(language: str, name: str, data: dict):
         if "{}.{}".format(language, name) not in Selector._registered_selectors.keys():
-            if SelectorType.get_selector_class(name) is not None:
-                Selector._registered_selectors["{}.{}".format(language, name)] = Selector(language, name, data)
-            # if name == SelectorType.sa_function.value:
-            #     Selector._registered_selectors["{}.{}".format(language, name)] = FunctionSelector(language, name, data)
-            # elif name == SelectorType.sa_class.value:
-            #     Selector._registered_selectors["{}.{}".format(language, name)] = None
-            # if
+            Selector._registered_selectors["{}.{}".format(language, name)] = Selector(language, name, data)
         return Selector._registered_selectors.get("{}.{}".format(language, name))
 
     @staticmethod
     def get_selector_by_name(name: str):
         return Selector._registered_selectors.get(name)
 
-    def __init__(self, language: str, name: str, format_string: list, data: dict):
-        self._model_type = mtype
+    def __init__(self, language: str, name: str, data: dict):
+        self._model_type = SelectorType.get_model_class(data.get("model_element"))
         self._name = name
         self._lang = language
         self._description = data.get("description")
-        self._regex_match = format_string
+        self._variations = data.get("variations")
         self._selection_name = data.get("name")
         self._top_level_selector = data.get("top_level_selector")
+        self._subselectors = {}
         if data.get("subselectors") is not None:
-            self._subselectors = ["{}.{}".format(language, sub) for sub in data.get("subselectors")]
-        else:
-            self._subselectors = []
+            self._subselectors = data.get("subselectors")
 
     def __str__(self):
         return "{}: {}".format("{}.{}".format(self._lang, self._name), self._description)
 
-    def select(self, file_contents: str, prefix: str = "") -> dict:
-        res: dict = {}
-        for selector in self._subselectors:
-            s: Selector = Selector.get_selector_by_name(selector)
-            if s is not None:
-                res[selector] = s.select(file_contents, prefix)
+    def select(self, file_contents: str, prefix: str = "") -> list:
+        res: list = []
+        v: dict
+        for v in self._variations:
+            r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
+            regex: str = r.build(v.get("regex_format_string"))
+            artefacts: list = re.findall(regex, file_contents)
+            for artefact in artefacts:
+                artefact_info: dict = {}
+                for k in v.keys():
+                    if k != "regex_format_string":
+                        artefact_info[k] = artefact[v[k]]
+                a: model.ModelGeneric
+                if self._model_type is not None:
+                    a = self._model_type(self._lang, prefix, artefact_info)
+
+                    sub_selection: dict = {}
+                    for selector in self._subselectors.keys():
+                        s: Selector = Selector.get_selector_by_name("{}.{}".format(self._lang, selector))
+                        if s is not None:
+                            sub_selection[selector] = s.select(
+                                artefact_info.get(self._subselectors[selector]["search_text"]),
+                                prefix
+                            )
+
+                    a.add_subselection(sub_selection)
+                    res.append(a)
         return res
 
     def get_is_top_level_selector(self) -> bool:
@@ -112,155 +131,33 @@ class Selector(object):
         return "{}.{}".format(self._lang, self._name)
 
 
-class FunctionSelector(Selector):
-    _parameters: int = None
-    _body: int = None
-
-    def __init__(self, language: str, name: str, format_string: str, data: dict):
-        super(FunctionSelector, self).__init__(language, name, format_string, data)
-        self._parameters = data.get("parameters")
-        self._body = data.get("body")
-
-    def select(self, file_contents: str, prefix: str = "") -> list:
-        functions = re.findall(self._regex_match, file_contents)
-        res: list = []
-        function: tuple
-        for function in functions:
-            function_name = function[self._selection_name]
-            ps: ParameterSelector = Selector.get_selector_by_name("{}.{}".format(self._lang, "parameter"))
-            function_params: list = ps.select(function[self._parameters])
-            function_body: list = function[self._body].split('\n')[:-1]
-            sub_entities: dict = super(FunctionSelector, self).select(
-                function[self._body],
-                prefix="{}.{}".format(
-                    prefix,
-                    function[self._selection_name]
-                )
-            )  # TODO deal with sub entities
-            func: model.FunctionModel = model.FunctionModel(self._lang, "{}.{}".format(prefix, function_name),
-                                                            function_params,
-                                                            function_body)
-            res.append(func)
-            print(func.flatten())
-            for sub_group in sub_entities.keys():
-                res += sub_entities.get(sub_group)
-        return res
-
-
-class ParameterSelector(Selector):
-    _type: int = None
-    _default_value: int = None
-
-    def __init__(self, language: str, name: str, format_string: str, data: dict):
-        super(ParameterSelector, self).__init__(language, name, format_string, data)
-        self._type = data.get("type")
-        self._default_value = data.get("default_value")
-
-    def select(self, file_contents: str, prefix: str = "") -> list:
-        parameters: list = re.findall(self._regex_match, file_contents)
-        res: list = []
-        parameter: tuple
-        for parameter in parameters:
-            parameter_name: str = parameter[self._selection_name]
-            parameter_type: str = parameter[self._type]
-            parameter_default: str = parameter[self._default_value]
-
-            res.append(model.VariableModel(
-                self._lang,
-                "{}.{}".format(prefix, parameter_name),
-                parameter_type,
-                parameter_default
-            ))
-        return res
-
-
-class ClassSelector(Selector):
-    _subclasses: int = None
-    _body: int = None
-
-    def __init__(self, language: str, name: str, format_string: str, data: dict):
-        super(ClassSelector, self).__init__(language, name, format_string, data)
-        self._subclasses = data.get("subclasses")
-        self._body = data.get("body")
-
-    def select(self, file_contents: str, prefix: str = ""):
-        klazzes: list = re.findall(self._regex_match, file_contents)
-        res: list = []
-        klazz: tuple
-        for klazz in klazzes:
-            klazz_name: str = klazz[self._selection_name]
-            klazz_subclasses: str = klazz[self._subclasses]
-            sub_entities: dict = super(ClassSelector, self).select(
-                klazz[self._body],
-                prefix="{}.{}".format(
-                    prefix,
-                    klazz_name
-                )
-            )
-            klazz_model: model.ClassModel = model.ClassModel(self._lang, "{}.{}".format(prefix, klazz_name), [],
-                                                             sub_entities)
-            res.append(klazz_model)
-            print(klazz_model.flatten())
-        return res
-
-
-class AttributeSelector(Selector):
-    _type: int = None
-    _initial_value: int = None
-
-    def __init__(self, language: str, name: str, format_string: str, data: dict):
-        super(AttributeSelector, self).__init__(language, name, format_string, data)
-        self._type = data.get("type")
-        self._initial_value = data.get("initial_value")
-
-    def select(self, file_contents: str, prefix: str = ""):
-        attributes: list = re.findall(self._regex_match, file_contents)
-
-        res: list = []
-        for attribute in attributes:
-            attribute_name: str = attribute[self._selection_name]
-            attribute_type: str = attribute[self._type]
-            attribute_value: str = attribute[self._initial_value]
-            attribute_model: model.VariableModel = model.VariableModel(
-                self._lang,
-                "{}.{}".format(prefix, attribute_name),
-                attribute_type,
-                attribute_value
-            )
-            res.append(attribute_model)
-        return res
-
-
 class SelectorType(Enum):
     sa_function = "function"
     sa_class = "class"
-    sa_parameter = "parameter"
-    sa_attribute = "attribute"
+    sa_variable = "variable"
+    sa_statement = "statement"
     _class_map: dict = {
-        sa_function: FunctionSelector,
-        sa_class: ClassSelector,
-        sa_parameter: ParameterSelector,
-        sa_attribute: AttributeSelector
+        sa_function: model.FunctionModel,
+        sa_class: model.ClassModel,
+        sa_variable: model.VariableModel,
+        sa_statement: model.StatementModel
     }
 
     @staticmethod
-    def get_selector_class(name: str) -> type:
-        res: type = None
-        if name in SelectorType._class_map.value.keys():
-            res = SelectorType._class_map.value.get(name)
-        return res
+    def get_model_class(name: str) -> type:
+        return SelectorType._class_map.value.get(name)
 
 
 class Preprocessor(object):
     _lang: str = None
     _directives: list = None
 
-    def __init__(self, lang: str, directives: dict, regex_builder: RegexBuilder):
+    def __init__(self, lang: str, directives: dict):
+        r: RegexBuilder = RegexBuilderFactory.get_builder(lang)
         self._directives = []
         self._lang = lang
         for directive in directives.keys():
-            regex_match: str = regex_builder.build(directives[directive]["regex_format_string"])
-            self._directives.append(Directive(directive, regex_match, directives.get(directive)))
+            self._directives.append(Directive(lang, directive, directives.get(directive)))
 
     def apply(self, file_contents: str):
         directive: Directive
@@ -318,7 +215,7 @@ class Descriptor(object):
         selector: Selector
         for selector in self._selectors:
             if selector is not None:
-                res[selector.get_qualified_name()] = selector.select(file_contents)
+                res[selector.get_name()] = selector.select(file_contents)
         return res
 
     def __str__(self):
@@ -326,8 +223,9 @@ class Descriptor(object):
 
     def parse(self, file: TextIOWrapper):
         temp_map: dict = {
-            "function": "functions",
-            "class": "classes"
+            "top_level_function": "functions",
+            "class": "classes",
+            "import": "dependencies"
         }
         # TODO check for local file so I know the namespace for where entities live(global vs local)
         file_contents: str = file.read()
