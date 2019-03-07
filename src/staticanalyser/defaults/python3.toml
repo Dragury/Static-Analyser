@@ -1,47 +1,172 @@
+[snippets]
+    [snippets.name]
+        regex = "[a-zA-Z_][-a-zA-Z0-9_]+"
+    [snippets.string]
+        regex = "\\\"[^\\\"\\n]\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]'|'''[.\\n]*'''"
+    [snippets.number]
+        regex = "0x[0-9ABCDEF]+|-?[0-9]+\\.[0-9]+|-?\\.[0-9]+|-?[0-9]+"
+    [snippets.boolean]
+        regex = "True|False"
+    [snippets.comment]
+        regex = "#.*"
+    [snippets.empty_line]
+        regex = "\\n\\s*\\n"
+    [snippets.statement]
+        regex = "(\\1\\s{4}.*\\n)"
+    [snippets.bare_statement]
+        regex = "(\\s*)(\\S.*)"
+
+[format_strings]
+    [format_strings.exploded_parameters]
+        regex = ",\\s*\\n"
+    [format_strings.dangling_opening_bracket]
+        regex = "((\\(|\\[|{)\\s*\\n\\s*)"
+    [format_strings.decorator]
+        regex = "@({{name}})"
+    [format_strings.commented_line]
+        regex = "(.*){{comment}}"
+    [format_strings.return_type]
+        regex = "\\s*->\\s*({{name}})"
+    [format_strings.top_level_function]
+        regex = "()(def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:\\n({{statement}}+))"
+        dependencies = ["return_type"]
+    [format_strings.function]
+        regex = "(\\s*){{top_level_function}}"
+        dependencies = ["top_level_function"]
+    [format_strings.decorated_function]
+        regex = "(\\s*)@({{name}})(\\((.+)\\))?\\n\\1({{function}}\\n)"
+        dependencies = ["function"]
+    [format_strings.decorator_call]
+        regex = "({{name}})\\(((,?\\s*(({{name}})|(['\\\"].*['\\\"]))\\s*)+),\\s*\\)"
+    [format_strings.parameter]
+        regex = "(({{name}})\\s*(:\\s*({{name}}))?(\\s*=\\s*({{name}}|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
+    [format_strings.class]
+        regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{statement}}+)"
+    [format_strings.attribute]
+        regex = "(\\s*)?({{name}})\\s*(:\\s*({{name}})\\s*)?=\\s*{{value}}"
+        dependencies = ["value"]
+    [format_strings.value]
+        regex = "({{name}}|{{string}}|{{number}}|{{boolean}})"
+
+    [format_strings.undefined]
+        regex = "bvfghnbvfghjkiuhjnhbvfddsxc"
+
 [directives]
     [directives.force_single_line]
         description = "Force statements to be on a single line rather than spread across multiple"
-        regex_match = "[ ]+\\n?([+,])\\n?[ ]+"
-        regex_replace = " \\1"
+        [[directives.force_single_line.variations]]
+            regex_format_string = "exploded_parameters"
+            regex_replace = ", "
+        [[directives.force_single_line.variations]]
+            regex_format_string = "dangling_opening_bracket"
+            regex_replace = " \\2"
     [directives.strip_comments]
         description = "Remove any comments from the code"
-        regex_match = "(.*)#.*"
-        regex_replace = "\\1"
+        [[directives.strip_comments.variations]]
+            regex_format_string = "commented_line"
+            regex_replace = "\\1"
     [directives.redecorate]
         description = "Expand decorators around functions"
-        regex_match = "(\\s*)@([a-zA-Z_][-a-zA-Z0-9_]+)(\\((.+)\\))?\\n\\1(def\\s+([-a-zA-Z_][-a-zA-Z0-9_]*)\\((.*)\\)(\\s*->\\s*[a-zA-Z_][-a-zA-Z0-9_]+)?\\s*:\\n((\\1\\s{4}.*\\n)+)\\n)" # TODO somehow allow tab width setting aha(prepreprocess config step) BUILD REGEX FROM PARTS, eg function def and then so-on
-        regex_replace = "\\1\\5\\n\\1\\2(\\6, \\4)\n"
-        # TODO sub strings for regex, e.g. clarity for function name matching, continually indented statements etc.
+        [[directives.redecorate.variations]]
+            regex_format_string = "decorated_function"
+            regex_replace = "\\1\\5\\n\\9 = \\1\\2(\\9, \\4)\n"
     [directives.redecorate_clean]
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
-        regex_match = "([a-zA-Z_][-a-zA-Z0-9_]+)\\(((,?\\s*(([a-zA-Z_][-a-zA-Z0-9_]+)|(['\\\"].*['\\\"]))\\s*)+),\\s*\\)"
-        regex_replace = "\\1(\\2)"
+        [[directives.redecorate_clean.variations]]
+            regex_format_string = "decorator_call"
+            regex_replace = "\\1(\\2)"
     [directives.strip_empty_lines]
         description = "Removes any empty lines"
-        regex_match = "\\n\\s*\\n"
-        regex_replace = "\n"
+        [[directives.strip_empty_lines.variations]]
+            regex_format_string = "empty_line"
+            regex_replace = "\n"
 
 [selectors]
-    [selectors.function]
-        description = "Selects functions"
-        regex_match = "(\\s*)(def\\s+(\\S+)\\((.+)\\)(\\s*->\\s*([a-zA-Z_][-a-zA-Z0-9_]+))?\\s*:\\n((\\1\\s{4}.*\\n)+))"
+    [selectors.top_level_function]
+        model_element = "function"
+        description = "Selects top level functions functions"
         top_level_selector = true
-        name = 2
-        parameters = 3
-        body = 6
-        explicit_type = 5
-        subselectors = ["function", "class", "statement"]
-    [selectors.parameter]
-        description = "Selects information pertaining to parameters"
-        regex_match = "(([a-zA-Z_][-a-zA-Z0-9_]+)\\s*(:\\s*([a-zA-Z_][-a-zA-Z0-9_]+))?(\\s*=\\s*([a-zA-Z_][-a-zA-Z0-9_]+|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
+        [[selectors.top_level_function.variations]]
+            regex_format_string = "top_level_function"
+            name = 2
+            parameters = 3
+            body = 6
+            explicit_type = 4
+        [selectors.top_level_function.subselectors]
+            [selectors.top_level_function.subselectors.function]
+                search_text = "body"
+            [selectors.top_level_function.subselectors.class]
+                search_text = "body"
+            [selectors.top_level_function.subselectors.statement]
+                search_text = "body"
+            [selectors.top_level_function.subselectors.parameter]
+                search_text = "parameters"
+    [selectors.function]
+        model_element = "function"
+        description = "Selects functions"
         top_level_selector = false
-        name = 2
-        type = 4
-        default_value = 6
+        [[selectors.function.variations]]
+            regex_format_string = "function"
+            name = 3
+            parameters = 4
+            body = 7
+            explicit_type = 6
+        [selectors.function.subselectors]
+            [selectors.function.subselectors.function]
+                search_text = "body"
+            [selectors.function.subselectors.class]
+                search_text = "body"
+            [selectors.function.subselectors.statement]
+                search_text = "body"
+            [selectors.function.subselectors.parameter]
+                search_text = "parameters"
+    [selectors.parameter]
+        model_element = "variable"
+        description = "Selects information pertaining to parameters"
+        top_level_selector = false
+        [[selectors.parameter.variations]]
+            regex_format_string = "parameter"
+            name = 1
+            type = 3
+            initial_value = 5
     [selectors.class]
+        model_element = "class"
         description = "Selects classes"
         top_level_selector = true
-        subselectors = ["attribute", "class", "function"]
+        [[selectors.class.variations]]
+            regex_format_string = "class"
+            name = 1
+            body = 4
+            subclasses = 3
+        [selectors.class.subselectors]
+            [selectors.class.subselectors.attribute]
+                search_text = "body"
+            [selectors.class.subselectors.class]
+                search_text = "body"
+            [selectors.class.subselectors.function]
+                search_text = "body"
+    [selectors.attribute]
+        model_element = "variable"
+        description = "selects attributes under classes"
+        top_level_selector = false
+        [[selectors.attribute.variations]]
+            regex_format_string = "attribute"
+            name = 1
+            type = 3
+            initial_value = 4
+    [selectors.statement]
+        model_element = "statement"
+        description = "selects statements from a string without whitespace prefix"
+        top_level_selector = false
+        [[selectors.statement.variations]]
+            regex_format_string = "bare_statement"
+            statement = 1
+    [selectors.import]
+        model_element = "dependency"
+        description = "selects import statements"
+        top_level_selector = true
+        [[selectors.import.variations]]
+            regex_format_string = "undefined"
 
 [info]
     description = "Support for the python3 language"

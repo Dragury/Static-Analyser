@@ -119,3 +119,4 @@ dmypy.json
 
 # Repo Specific
 .force_setup
+out.json

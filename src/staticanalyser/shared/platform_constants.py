@@ -9,7 +9,7 @@ CONFIG_LOCATION: path = None
 if name == "nt":
     GLOBAL_DATA_DIR = path.join(environ['APPDATA'], "static-analyser")
     # THIS ISN'T WORKING RIGHT ON WINDOWS
-else: # name == "posix" must be some variation of linux? if not true then it should be an easy fix if it comes up
+else:  # name == "posix" must be some variation of linux? if not true then it should be an easy fix if it comes up
     GLOBAL_DATA_DIR = path.join(environ['HOME'], ".static-analyser")
 
 MODEL_DIR = path.join(GLOBAL_DATA_DIR, "models")
