@@ -40,7 +40,7 @@ def translate(input_files: list, options: dict = None) -> int:
     if not path.exists(local_dir):
         Path(local_dir).mkdir(parents=True, exist_ok=True)
 
-    number_of_processes = options.get("jobs", default=1)
+    number_of_processes = options.get("jobs") or 1
 
     source_paths: list = environ.get("SOURCE_PATHS", default=getcwd()).split(";")
     if getcwd() not in source_paths:
