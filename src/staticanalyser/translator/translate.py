@@ -28,7 +28,7 @@ def parse(file_queue: mp.Queue, local_dir, source_paths):
         pass
 
 
-def translate(input_files: list) -> int:
+def translate(input_files: list, options: dict) -> int:
     extension_set: set = set()
     selected_parsers: set = set()
 
@@ -40,7 +40,7 @@ def translate(input_files: list) -> int:
     if not path.exists(local_dir):
         Path(local_dir).mkdir(parents=True, exist_ok=True)
 
-    number_of_processes = int(environ.get("PROCESSES", default=4))
+    number_of_processes = options.get("jobs")
 
     source_paths: list = environ.get("SOURCE_PATHS", default=getcwd()).split(";")
     if getcwd() not in source_paths:
@@ -51,7 +51,7 @@ def translate(input_files: list) -> int:
     file_list: list = input_files
     file_queue: mp.Queue = mp.Queue()
     for file in file_list:
-        file_queue.put(file.name)
+        file_queue.put(file)
 
     processes: list = []
     for pid in range(number_of_processes):
