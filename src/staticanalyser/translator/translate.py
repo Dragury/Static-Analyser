@@ -28,9 +28,9 @@ def parse(file_queue: mp.Queue, local_dir, source_paths):
         pass
 
 
-def translate(input_files: list, options: dict) -> int:
-    extension_set: set = set()
-    selected_parsers: set = set()
+def translate(input_files: list, options: dict = None) -> int:
+    if not options:
+        options = {}
 
     local_dir_name: str = environ.get("LOCAL_DIR", default=None)
     local_dir: path = path.join(getcwd(), ".model")
@@ -40,7 +40,7 @@ def translate(input_files: list, options: dict) -> int:
     if not path.exists(local_dir):
         Path(local_dir).mkdir(parents=True, exist_ok=True)
 
-    number_of_processes = options.get("jobs")
+    number_of_processes = options.get("jobs", default=1)
 
     source_paths: list = environ.get("SOURCE_PATHS", default=getcwd()).split(";")
     if getcwd() not in source_paths:
