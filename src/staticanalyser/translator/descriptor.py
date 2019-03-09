@@ -1,12 +1,18 @@
+import datetime
+from hashlib import md5
 from io import TextIOWrapper
 from enum import Enum
 from os import path
+from pathlib import Path
+
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
 import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
 import re
 import json
+from os import getcwd, mkdir
+from staticanalyser.shared.model import ModelGeneric
 
 
 class RegexBuilderFactory(object):
@@ -136,11 +142,17 @@ class SelectorType(Enum):
     sa_class = "class"
     sa_variable = "variable"
     sa_statement = "statement"
+    sa_for_loop = "for_loop"
+    sa_dependency = "dependency"
+    sa_basic_string = "basic_string"
     _class_map: dict = {
         sa_function: model.FunctionModel,
         sa_class: model.ClassModel,
         sa_variable: model.VariableModel,
-        sa_statement: model.StatementModel
+        sa_statement: model.StatementModel,
+        sa_for_loop: model.ForLoopModel,
+        sa_dependency: model.DependencyModel,
+        sa_basic_string: model.BasicString
     }
 
     @staticmethod
@@ -162,7 +174,7 @@ class Preprocessor(object):
     def apply(self, file_contents: str):
         directive: Directive
         for directive in self._directives:
-            print(directive)
+            # print(directive)
             file_contents = directive.apply(file_contents)
         return file_contents
 
@@ -173,6 +185,7 @@ class Descriptor(object):
     _syntax_descriptor: dict = None
     _preprocessor: Preprocessor = None
     _selectors: list = None
+    _json_mappings: dict = None
 
     @staticmethod
     def get_descriptor(language: str):
@@ -193,6 +206,7 @@ class Descriptor(object):
             self._configure_regex_builder(language_config.get("snippets"), language_config.get("format_strings"))
             self._load_preprocessor(language_config.get("directives"))
             self._load_selectors(language_config.get("selectors"))
+            self._json_mappings = language_config.get("json_mappings") or {}
 
     def _configure_regex_builder(self, snippets: dict, format_strings: dict):
         RegexBuilderFactory.get_builder(self._lang, snippets, format_strings)
@@ -221,29 +235,57 @@ class Descriptor(object):
     def __str__(self):
         return self._lang
 
-    def parse(self, file: TextIOWrapper):
+    def output_json(self, output_path: path, input_file: TextIOWrapper, extension: str, source_paths: path, model: dict, file_hash: str):
+        cur_source_path = None
+        for p in source_paths:
+            if not cur_source_path or len(path.relpath(input_file.name, p)) < len(
+                    path.relpath(input_file.name, cur_source_path)):
+                cur_source_path = p
+
+        model_path: path = path.relpath(input_file.name, cur_source_path)
+        file_path: path = path.join(output_path, self._lang, model_path)[:-1*len(extension)] + "json"
+        file_dir: path = path.abspath(path.dirname(path.join(output_path, self._lang, model_path)))
+        if not path.exists(file_dir):
+            Path(file_dir).mkdir(parents=True, exist_ok=True)
+        print(file_path)
+        with open(file_path, "w") as f:
+            model["hash"] = file_hash
+            model["file_name"] = input_file.name
+            model["date_generated"] = str(datetime.datetime.now())
+            group: str
+            for group in model.keys():
+                se: list = model.get(group)
+                if type(se) is list:
+                    for i in range(len(se)):
+                        se.append(se.pop(0).flatten())
+            k: list = [*model.keys()]
+            for key in self._json_mappings.keys():
+                if key in model.keys():
+                    model[self._json_mappings[key]] = model[key]
+                    del model[key]
+
+            print(json.dumps(model, indent=4), file=f)
+
+    def parse(self, file: TextIOWrapper, file_extension: str, local_dir: path, source_paths: path = getcwd()):
         temp_map: dict = {
             "top_level_function": "functions",
             "class": "classes",
-            "import": "dependencies"
+            "dependency": "dependencies"
         }
+        # TODO normalise whitespace for better parsing, either \t or 4 spaces
         # TODO check for local file so I know the namespace for where entities live(global vs local)
+        # TODO check stored model for existing model + different hash from source
         file_contents: str = file.read()
-        print("File before:")
-        print(file_contents)
+        file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
+        # print("File before:")
+        # print(file_contents)
         file_contents = self.preprocess(file_contents)
-        print("File after:")
-        print(file_contents)
+        # print("File after:")
+        # print(file_contents)
         selected_entities: dict = self.select(file_contents)
-        print(selected_entities)
-        with open("out.json", "w") as f:
-            group: str
-            for group in selected_entities.keys():
-                se: list = selected_entities.get(group)
-                for i in range(len(se)):
-                    se.append(se.pop(0).flatten())
-            k: list = [*selected_entities.keys()]
-            for key in k:
-                selected_entities[temp_map.get(key.split(".")[-1:][0])] = selected_entities[key]
-                del selected_entities[key]
-            print(json.dumps(selected_entities), file=f)
+
+        # print(selected_entities)
+
+        self.output_json(local_dir, file, file_extension,  source_paths, selected_entities, file_hash)
+        # TODO resolve references, cull duplicates
+        # TODO run json schema check

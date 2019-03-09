@@ -1,8 +1,9 @@
+from pathlib import Path
+
 from staticanalyser.shared.model import *
 import staticanalyser.shared.config as config
 import staticanalyser.translator.descriptor as descriptor
-from argparse import Namespace
-from os import path, getcwd
+from os import path, getcwd, environ, mkdir
 from _io import TextIOWrapper
 import re
 
@@ -19,6 +20,19 @@ def translate(input_files: list) -> int:
     extension_set: set = set()
     selected_parsers: set = set()
 
+    local_dir_name: str = environ.get("LOCAL_DIR", default=None)
+    local_dir: path = path.join(getcwd(), ".model")
+    if local_dir_name:
+        local_dir = path.abspath(local_dir_name)
+
+    if not path.exists(local_dir):
+        Path(local_dir).mkdir(parents=True, exist_ok=True)
+
+    source_paths: list = environ.get("SOURCE_PATHS", default=getcwd()).split(";")
+    if getcwd() not in source_paths:
+        source_paths.append(getcwd())
+
+
     f: TextIOWrapper
     for f in input_files:
         extension: str = get_file_extension(f)
@@ -33,13 +47,11 @@ def translate(input_files: list) -> int:
         parser_options = lookup_parser(get_file_extension(f))
         if parser_options[0] is not None:
             selected_parser = descriptor.Descriptor(parser_options[0])
-            selected_parser.parse(f)
-            print("Using {} to translate {}".format(selected_parser, f.name)) # TODO switch to python logger
+            selected_parser.parse(f, get_file_extension(f), local_dir, source_paths)
+            # print("Using {} to translate {}".format(selected_parser, f.name)) # TODO switch to python logger
         else:
-            print("No parser found for {}".format(f.name))
-    # TODO save models
-
-    # TODO check against schema
+            # print("No parser found for {}".format(f.name))
+            pass
 
     # TODO check current model
     return 0

@@ -13,8 +13,6 @@
         regex = "\\n\\s*\\n"
     [snippets.statement]
         regex = "(\\1\\s{4}.*\\n)"
-    [snippets.bare_statement]
-        regex = "(\\s*)(\\S.*)"
 
 [format_strings]
     [format_strings.exploded_parameters]
@@ -47,7 +45,16 @@
         dependencies = ["value"]
     [format_strings.value]
         regex = "({{name}}|{{string}}|{{number}}|{{boolean}})"
-
+    [format_strings.bare_statement]
+        regex = "(\\s*)((({{name}})\\s*=\\s*)?(\\S.*))"
+    [format_strings.for_loop]
+        regex = "(\\s*)(for .*:)\\n({{statement}}+)"
+    [format_strings.import_from]
+        regex = "(\\s*)from\\s+(({{name}}\\.?)+)\\s+import\\s+(.+)"
+    [format_strings.imported_names]
+        regex = "(({{name}}|\\*),?)"
+    [format_strings.import]
+        regex = "(\\s*)import (({{name}}\\.?)+)"
     [format_strings.undefined]
         regex = "bvfghnbvfghjkiuhjnhbvfddsxc"
 
@@ -101,6 +108,8 @@
                 search_text = "body"
             [selectors.top_level_function.subselectors.parameter]
                 search_text = "parameters"
+            [selectors.top_level_function.subselectors.for_loop]
+                search_text = "body"
     [selectors.function]
         model_element = "function"
         description = "Selects functions"
@@ -120,6 +129,8 @@
                 search_text = "body"
             [selectors.function.subselectors.parameter]
                 search_text = "parameters"
+            [selectors.function.subselectors.for_loop]
+                search_text = "body"
     [selectors.parameter]
         model_element = "variable"
         description = "Selects information pertaining to parameters"
@@ -154,21 +165,61 @@
             name = 1
             type = 3
             initial_value = 4
+    [selectors.for_loop]
+        model_element = "for_loop"
+        description = "selects for loops"
+        top_level_selector = false
+        [[selectors.for_loop.variations]]
+            regex_format_string = "for_loop"
+            loop = 1
+            body = 2
+        [selectors.for_loop.subselectors]
+            [selectors.for_loop.subselectors.for_loop]
+                search_text = "body"
+            [selectors.for_loop.subselectors.statement]
+                search_text = "body"
     [selectors.statement]
         model_element = "statement"
         description = "selects statements from a string without whitespace prefix"
         top_level_selector = false
         [[selectors.statement.variations]]
             regex_format_string = "bare_statement"
-            statement = 1
-    [selectors.import]
+            lhs = 3
+            rhs = 4
+    [selectors.operation]
+        model_element = false
+        description = "breaks appart operations "
+        top_level_selector = false
+    [selectors.dependency]
         model_element = "dependency"
         description = "selects import statements"
         top_level_selector = true
-        [[selectors.import.variations]]
-            regex_format_string = "undefined"
+        [[selectors.dependency.variations]]
+            regex_format_string = "import_from"
+            source = 1
+            provides = 3
+        [[selectors.dependency.variations]]
+            regex_format_string = "import"
+            source = 1
+            provides = 2
+        [selectors.dependency.subselectors]
+            [selectors.dependency.subselectors.provided_dependencies]
+                search_text = "provides"
+    [selectors.provided_dependencies]
+        model_element = "basic_string"
+        description = "gets the provided entities from an import"
+        top_level_selector = false
+        [[selectors.provided_dependencies.variations]]
+            regex_format_string = "imported_names"
+            value = 1
+
 
 [info]
     description = "Support for the python3 language"
     file_extensions = [".py", ".pyw"]
     sources = []
+    builtins = ["print"]
+[json_mappings]
+    top_level_function = "functions"
+    class = "classes"
+    dependency = "dependencies"
