@@ -245,7 +245,8 @@ class Descriptor(object):
         model_path: path = path.relpath(input_file.name, cur_source_path)
         return path.join(output_path, self._lang, model_path) + ".json"
 
-    def output_json(self, output_path: path, input_file: TextIOWrapper, source_paths: path, sa_model: dict, file_hash: str):
+    def output_json(self, output_path: path, input_file: TextIOWrapper, source_paths: path, sa_model: dict,
+                    file_hash: str):
         file_path: path = self._get_json_path(output_path, input_file, source_paths)
         file_dir: path = path.abspath(path.dirname(file_path))
         if not path.exists(file_dir):
@@ -268,7 +269,6 @@ class Descriptor(object):
 
             validate(sa_model, model.SCHEMA)
             json_output = json.dumps(sa_model, indent=4)
-
 
             print(json_output, file=f)
 
@@ -296,7 +296,7 @@ class Descriptor(object):
 
             # print(selected_entities)
 
-            self.output_json(local_dir, file,  source_paths, selected_entities, file_hash)
+            self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
             # TODO resolve references, cull duplicates
             # TODO run json schema check
         else:

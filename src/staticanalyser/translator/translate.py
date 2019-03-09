@@ -13,7 +13,7 @@ def lookup_parser(extension: str) -> str:
 
 
 def get_file_extension(entity: TextIOWrapper) -> str:
-    return re.split(r'\.', entity.name)[-1] # TODO compile regex pattern for better performance
+    return re.split(r'\.', entity.name)[-1]  # TODO compile regex pattern for better performance
 
 
 def translate(input_files: list) -> int:
@@ -31,7 +31,6 @@ def translate(input_files: list) -> int:
     source_paths: list = environ.get("SOURCE_PATHS", default=getcwd()).split(";")
     if getcwd() not in source_paths:
         source_paths.append(getcwd())
-
 
     f: TextIOWrapper
     for f in input_files:
