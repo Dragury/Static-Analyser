@@ -20,6 +20,12 @@
       "items": {
         "$ref": "#/definitions/class"
       }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/dependency"
+      }
     }
   },
   "definitions": {
@@ -104,6 +110,26 @@
         "subclasses",
         "methods"
       ]
+    },
+    "dependency": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Specifies that it is an import"
+        },
+        "source": {
+          "type": "string",
+          "description": "The source of the imported entities"
+        },
+        "provides": {
+          "type": "array",
+          "description": "The entities that are provided by this dependency",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

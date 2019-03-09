@@ -235,17 +235,17 @@ class Descriptor(object):
     def __str__(self):
         return self._lang
 
-    def _get_json_path(self, output_path: path, input_file: TextIOWrapper, source_paths: path):
+    def _get_json_path(self, output_path: path, input_file: str, source_paths: path):
         cur_source_path = None
         for p in source_paths:
-            if not cur_source_path or len(path.relpath(input_file.name, p)) < len(
-                    path.relpath(input_file.name, cur_source_path)):
+            if not cur_source_path or len(path.relpath(input_file, p)) < len(
+                    path.relpath(input_file, cur_source_path)):
                 cur_source_path = p
 
-        model_path: path = path.relpath(input_file.name, cur_source_path)
+        model_path: path = path.relpath(input_file, cur_source_path)
         return path.join(output_path, self._lang, model_path) + ".json"
 
-    def output_json(self, output_path: path, input_file: TextIOWrapper, source_paths: path, sa_model: dict,
+    def output_json(self, output_path: path, input_file: str, source_paths: path, sa_model: dict,
                     file_hash: str):
         file_path: path = self._get_json_path(output_path, input_file, source_paths)
         file_dir: path = path.abspath(path.dirname(file_path))
@@ -253,7 +253,7 @@ class Descriptor(object):
             Path(file_dir).mkdir(parents=True, exist_ok=True)
         with open(file_path, "w") as f:
             sa_model["hash"] = file_hash
-            sa_model["file_name"] = input_file.name
+            sa_model["file_name"] = input_file
             sa_model["date_generated"] = str(datetime.datetime.now())
             group: str
             for group in sa_model.keys():
@@ -272,11 +272,12 @@ class Descriptor(object):
 
             print(json_output, file=f)
 
-    def parse(self, file: TextIOWrapper, file_extension: str, local_dir: path, source_paths: path = getcwd()):
+    def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path = getcwd()):
         # TODO normalise whitespace for better parsing, either \t or 4 spaces
         # TODO check for local file so I know the namespace for where entities live(global vs local)
         # TODO check stored model for existing model + different hash from source
-        file_contents: str = file.read()
+        with open(file, "r") as f:
+            file_contents: str = f.read()
         file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
         model_expired: bool = True
         if path.exists(self._get_json_path(local_dir, file, source_paths)):
@@ -288,7 +289,7 @@ class Descriptor(object):
         # print("File before:")
         # print(file_contents)
         if model_expired:
-            print("Translating {}".format(file.name))
+            print("Translating {}".format(file))
             file_contents = self.preprocess(file_contents)
             # print("File after:")
             # print(file_contents)
@@ -299,5 +300,6 @@ class Descriptor(object):
             self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
             # TODO resolve references, cull duplicates
             # TODO run json schema check
+            print("Translation done for {}".format(file))
         else:
-            print("Skipping {}".format(file.name))
+            print("Skipping {}".format(file))
