@@ -12,7 +12,7 @@ def lookup_parser(extension: str) -> list:
 
 
 def get_file_extension(entity: str) -> str:
-    return re.split(r'\.', entity)[-1]  # TODO compile regex pattern for better performance
+    return re.split(r'\.', str(entity))[-1]  # TODO compile regex pattern for better performance
 
 
 def parse(file_queue: mp.Queue, local_dir, source_paths):
@@ -27,6 +27,13 @@ def parse(file_queue: mp.Queue, local_dir, source_paths):
     except _queue.Empty:
         pass
 
+def get_files(src: path) -> list:
+    res: list = [src]
+    if path.isdir(src):
+        res = []
+        for file in Path(src).iterdir():
+            res += get_files(file)
+    return res
 
 def translate(input_files: list, options: dict = None) -> int:
     if not options:
@@ -51,16 +58,21 @@ def translate(input_files: list, options: dict = None) -> int:
     file_list: list = input_files
     file_queue: mp.Queue = mp.Queue()
     for file in file_list:
-        file_queue.put(file)
+        contents: list = get_files(file)
+        for f in contents:
+            file_queue.put(f)
 
-    processes: list = []
-    for pid in range(number_of_processes):
-        process = mp.Process(target=parse, args=(file_queue, local_dir, source_paths))
-        processes.append(process)
-        process.start()
+    if number_of_processes > 1:
+        processes: list = []
+        for pid in range(number_of_processes):
+            process = mp.Process(target=parse, args=(file_queue, local_dir, source_paths))
+            processes.append(process)
+            process.start()
 
-    for process in processes:
-        process.join()
+        for process in processes:
+            process.join()
+    else:
+        parse(file_queue, local_dir, source_paths)
 
     # TODO load descriptors
     # for f in file_list:

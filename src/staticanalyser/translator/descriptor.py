@@ -1,6 +1,5 @@
 import datetime
 from hashlib import md5
-from io import TextIOWrapper
 from enum import Enum
 from os import path
 from pathlib import Path
@@ -54,6 +53,10 @@ class Directive(object):
     def apply(self, file_contents: str) -> str:
         r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
         for v in self._variations:
+            if self._name == "redecorate":
+                print(file_contents)
+                print(r.build(v.get("regex_format_string")))
+                print(re.findall(r.build(v.get("regex_format_string")), file_contents))
             file_contents = re.sub(
                 r.build(v.get("regex_format_string")),
                 v.get("regex_replace"),
@@ -174,7 +177,7 @@ class Preprocessor(object):
     def apply(self, file_contents: str):
         directive: Directive
         for directive in self._directives:
-            # print(directive)
+            print(directive)
             file_contents = directive.apply(file_contents)
         return file_contents
 
@@ -253,7 +256,7 @@ class Descriptor(object):
             Path(file_dir).mkdir(parents=True, exist_ok=True)
         with open(file_path, "w") as f:
             sa_model["hash"] = file_hash
-            sa_model["file_name"] = input_file
+            sa_model["file_name"] = str(input_file)
             sa_model["date_generated"] = str(datetime.datetime.now())
             group: str
             for group in sa_model.keys():
@@ -291,8 +294,8 @@ class Descriptor(object):
         if model_expired:
             print("Translating {}".format(file))
             file_contents = self.preprocess(file_contents)
-            # print("File after:")
-            # print(file_contents)
+            print("File after:")
+            print(file_contents)
             selected_entities: dict = self.select(file_contents)
 
             # print(selected_entities)
