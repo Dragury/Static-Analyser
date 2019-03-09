@@ -4,6 +4,7 @@ from io import TextIOWrapper
 from enum import Enum
 from os import path
 from pathlib import Path
+from jsonschema import validate
 
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
@@ -12,7 +13,6 @@ from staticanalyser.regexbuilder import *
 import re
 import json
 from os import getcwd, mkdir
-from staticanalyser.shared.model import ModelGeneric
 
 
 class RegexBuilderFactory(object):
@@ -235,7 +235,7 @@ class Descriptor(object):
     def __str__(self):
         return self._lang
 
-    def output_json(self, output_path: path, input_file: TextIOWrapper, source_paths: path, model: dict, file_hash: str):
+    def _get_json_path(self, output_path: path, input_file: TextIOWrapper, source_paths: path):
         cur_source_path = None
         for p in source_paths:
             if not cur_source_path or len(path.relpath(input_file.name, p)) < len(
@@ -243,49 +243,61 @@ class Descriptor(object):
                 cur_source_path = p
 
         model_path: path = path.relpath(input_file.name, cur_source_path)
-        file_path: path = path.join(output_path, self._lang, model_path) + ".json"
-        file_dir: path = path.abspath(path.dirname(path.join(output_path, self._lang, model_path)))
+        return path.join(output_path, self._lang, model_path) + ".json"
+
+    def output_json(self, output_path: path, input_file: TextIOWrapper, source_paths: path, sa_model: dict, file_hash: str):
+        file_path: path = self._get_json_path(output_path, input_file, source_paths)
+        file_dir: path = path.abspath(path.dirname(file_path))
         if not path.exists(file_dir):
             Path(file_dir).mkdir(parents=True, exist_ok=True)
-        print(file_path)
         with open(file_path, "w") as f:
-            model["hash"] = file_hash
-            model["file_name"] = input_file.name
-            model["date_generated"] = str(datetime.datetime.now())
+            sa_model["hash"] = file_hash
+            sa_model["file_name"] = input_file.name
+            sa_model["date_generated"] = str(datetime.datetime.now())
             group: str
-            for group in model.keys():
-                se: list = model.get(group)
+            for group in sa_model.keys():
+                se: list = sa_model.get(group)
                 if type(se) is list:
                     for i in range(len(se)):
                         se.append(se.pop(0).flatten())
-            k: list = [*model.keys()]
+            k: list = [*sa_model.keys()]
             for key in self._json_mappings.keys():
-                if key in model.keys():
-                    model[self._json_mappings[key]] = model[key]
-                    del model[key]
+                if key in sa_model.keys():
+                    sa_model[self._json_mappings[key]] = sa_model[key]
+                    del sa_model[key]
 
-            print(json.dumps(model, indent=4), file=f)
+            validate(sa_model, model.SCHEMA)
+            json_output = json.dumps(sa_model, indent=4)
+
+
+            print(json_output, file=f)
 
     def parse(self, file: TextIOWrapper, file_extension: str, local_dir: path, source_paths: path = getcwd()):
-        temp_map: dict = {
-            "top_level_function": "functions",
-            "class": "classes",
-            "dependency": "dependencies"
-        }
         # TODO normalise whitespace for better parsing, either \t or 4 spaces
         # TODO check for local file so I know the namespace for where entities live(global vs local)
         # TODO check stored model for existing model + different hash from source
         file_contents: str = file.read()
         file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
+        model_expired: bool = True
+        if path.exists(self._get_json_path(local_dir, file, source_paths)):
+            with open(self._get_json_path(local_dir, file, source_paths), "r") as m:
+                model = json.load(m)
+                if model.get("hash") == file_hash:
+                    model_expired = False
+
         # print("File before:")
         # print(file_contents)
-        file_contents = self.preprocess(file_contents)
-        # print("File after:")
-        # print(file_contents)
-        selected_entities: dict = self.select(file_contents)
+        if model_expired:
+            print("Translating {}".format(file.name))
+            file_contents = self.preprocess(file_contents)
+            # print("File after:")
+            # print(file_contents)
+            selected_entities: dict = self.select(file_contents)
 
-        # print(selected_entities)
+            # print(selected_entities)
 
-        self.output_json(local_dir, file,  source_paths, selected_entities, file_hash)
-        # TODO resolve references, cull duplicates
-        # TODO run json schema check
+            self.output_json(local_dir, file,  source_paths, selected_entities, file_hash)
+            # TODO resolve references, cull duplicates
+            # TODO run json schema check
+        else:
+            print("Skipping {}".format(file.name))

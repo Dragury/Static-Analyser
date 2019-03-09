@@ -2,6 +2,11 @@
 from enum import Enum
 import json
 from hashlib import md5
+from staticanalyser.shared.platform_constants import SCHEMA_LOCATION
+
+SCHEMA: dict = None
+with open(SCHEMA_LOCATION, "r") as s:
+    SCHEMA = json.load(s)
 
 
 class ReferenceModel(str):

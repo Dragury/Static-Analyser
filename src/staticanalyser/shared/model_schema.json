@@ -3,7 +3,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "description": "A representation of a model that has been extracted from code",
   "type": "object",
-  "required": ["functions", "classes"],
+  "required": ["functions", "classes", "dependencies"],
   "properties": {
     "functions": {
       "type": "array",
@@ -42,8 +42,12 @@
           "description": "The parameters than can be passed to the function"
         },
         "body": {
-          "type": "array",
+          "type": "string",
           "description": "The body of the function"
+        },
+        "body_parsed": {
+          "type": "array",
+          "description": "The parsed body of the function"
         },
         "return_type": {
           "type": "string",
