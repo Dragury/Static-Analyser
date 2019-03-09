@@ -235,7 +235,7 @@ class Descriptor(object):
     def __str__(self):
         return self._lang
 
-    def output_json(self, output_path: path, input_file: TextIOWrapper, extension: str, source_paths: path, model: dict, file_hash: str):
+    def output_json(self, output_path: path, input_file: TextIOWrapper, source_paths: path, model: dict, file_hash: str):
         cur_source_path = None
         for p in source_paths:
             if not cur_source_path or len(path.relpath(input_file.name, p)) < len(
@@ -243,7 +243,7 @@ class Descriptor(object):
                 cur_source_path = p
 
         model_path: path = path.relpath(input_file.name, cur_source_path)
-        file_path: path = path.join(output_path, self._lang, model_path)[:-1*len(extension)] + "json"
+        file_path: path = path.join(output_path, self._lang, model_path) + ".json"
         file_dir: path = path.abspath(path.dirname(path.join(output_path, self._lang, model_path)))
         if not path.exists(file_dir):
             Path(file_dir).mkdir(parents=True, exist_ok=True)
@@ -286,6 +286,6 @@ class Descriptor(object):
 
         # print(selected_entities)
 
-        self.output_json(local_dir, file, file_extension,  source_paths, selected_entities, file_hash)
+        self.output_json(local_dir, file,  source_paths, selected_entities, file_hash)
         # TODO resolve references, cull duplicates
         # TODO run json schema check
