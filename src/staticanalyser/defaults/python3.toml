@@ -215,8 +215,9 @@
 
 
 [info]
+    name = "python3"
     description = "Support for the python3 language"
-    file_extensions = [".py", ".pyw"]
+    file_extensions = ["py", "pyw"]
     sources = []
     builtins = ["print"]
 [json_mappings]

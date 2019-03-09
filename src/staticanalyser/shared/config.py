@@ -1,9 +1,27 @@
+from pathlib import Path
+
 import toml
 import sys
-from staticanalyser.shared.platform_constants import CONFIG_LOCATION
+from staticanalyser.shared.platform_constants import LANGS_DIR
 
-_CONFIG_ITEMS = toml.load(CONFIG_LOCATION)
-__all__ = ['get_languages']
+_CONFIG_ITEMS = {
+    "languages": [],
+    "filetypes": {}
+}
+__all__ = ['get_languages', 'get_languages_by_extension', 'get_filetypes', 'get_file_extensions']
+
+langs_dir = Path(LANGS_DIR)
+for file in langs_dir.iterdir():
+    with open(str(file), "r") as lang_file:
+        lang_info = toml.load(lang_file).get("info")
+        if lang_info:
+            _CONFIG_ITEMS.get("languages").append(lang_info.get("name"))
+            for extension in lang_info.get("file_extensions"):
+                if extension not in _CONFIG_ITEMS.get("filetypes").keys():
+                    _CONFIG_ITEMS.get("filetypes")[extension] = [lang_info.get("name")]
+                else:
+                    _CONFIG_ITEMS.get("filetypes").get(extension).append(lang_info.get("name"))
+
 
 
 # CONFIG SUBFUNCTIONS
@@ -31,10 +49,14 @@ def get_languages() -> object:
 def get_languages_by_extension(extension: str) -> list:
     languages: dict = get_filetypes()
     if extension in languages.keys():
-        return languages.get(extension).get("languages")
+        return languages.get(extension)
     else:
         return [None]
 
 
-def get_filetypes() -> object:
+def get_filetypes() -> dict:
     return _get_config_item()
+
+
+def get_file_extensions() -> list:
+    return list(get_filetypes().keys())
