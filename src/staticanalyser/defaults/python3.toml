@@ -15,8 +15,14 @@
         regex = "\\n\\s*\\n"
     [snippets.statement]
         regex = "(\\1\\s{4}.*\\n)"
+    [snippets.statement_no_newline]
+        regex = "(\\1\\s{4}.*)"
+    [snippets.entrypoint]
+        regex = "if\\s+__name__\\s*==\\s*\\\"__main__\\\"\\s*:"
 
 [format_strings]
+    [format_strings.block_body]
+        regex = "{{statement}}*{{statement_no_newline}}"
     [format_strings.exploded_parameters]
         regex = ",\\s*\\n"
     [format_strings.dangling_opening_bracket]
@@ -27,12 +33,9 @@
         regex = "(.*){{comment}}"
     [format_strings.return_type]
         regex = "\\s*->\\s*({{name}})"
-    [format_strings.top_level_function]
-        regex = "()(def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:\\n({{statement}}+))"
-        dependencies = ["return_type"]
     [format_strings.function]
-        regex = "(\\s*){{top_level_function}}"
-        dependencies = ["top_level_function"]
+        regex = "(\\s*)(def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:\\n({{block_body}}))"
+        dependencies = ["return_type", "block_body"]
     [format_strings.decorated_function]
         regex = "(\\s*)@({{name}})(\\((.+)\\))?\\n\\1({{function}})"
         dependencies = ["function"]
@@ -42,7 +45,8 @@
     [format_strings.parameter]
         regex = "(({{name}})\\s*(:\\s*({{name}}))?(\\s*=\\s*({{name}}|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
     [format_strings.class]
-        regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{statement}}+)"
+        regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{block_body}})"
+        dependencies = ["block_body"]
     [format_strings.attribute]
         regex = "(\\s*)?({{name}})\\s*(:\\s*({{name}})\\s*)?=\\s*{{value}}"
         dependencies = ["value"]
@@ -51,7 +55,17 @@
     [format_strings.bare_statement]
         regex = "(\\s*)((({{name}})\\s*=\\s*)?(\\S.*))"
     [format_strings.for_loop]
-        regex = "(\\s*)(for .*:)\\n({{statement}}+)"
+        regex = "(\\s*)(for .*:)\\n({{block_body}})"
+        dependencies = ["block_body"]
+    [format_strings.while_loop]
+        regex = "(\\s*)(while (.*):)\\n({{block_body}})"
+        dependencies = ["block_body"]
+    [format_strings.if_condition]
+        regex = "(\\s*)(if (.*):)\\n({{block_body}})"
+        dependencies = ["block_body"]
+    [format_strings.if_else_condition]
+        regex = "(\\s*)(if (.*):)\\n({{block_body}})\\n\\1else:\\n({{block_body}})"
+        dependencies = ["block_body"]
     [format_strings.import_from]
         regex = "(\\s*)from\\s+(({{name}}\\.?)+)\\s+import\\s+(.+)"
     [format_strings.imported_names]
@@ -94,60 +108,14 @@
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
         [[directives.redecorate_clean.variations]]
             regex_format_string = "decorator_call"
-            regex_replace = "\\1\\3\\1\\4 = \\g<11>(\\g<13>)"
+            regex_replace = "\\1\\3\\1\\4 = \\g<10>(\\g<12>)"
+    [directives.generate_main]
+        description = "create a pseudo main method for the file"
+        [[directives.generate_main.variations]]
+            regex_format_string = "entrypoint"
+            regex_replace = "def main() -> int:"
 
 [selectors]
-    [selectors.top_level_function]
-        model_element = "function"
-        description = "Selects top level functions functions"
-        top_level_selector = true
-        [[selectors.top_level_function.variations]]
-            regex_format_string = "top_level_function"
-            name = 2
-            parameters = 3
-            body = 6
-            explicit_type = 4
-        [selectors.top_level_function.subselectors]
-            [selectors.top_level_function.subselectors.function]
-                search_text = "body"
-            [selectors.top_level_function.subselectors.class]
-                search_text = "body"
-            [selectors.top_level_function.subselectors.statement]
-                search_text = "body"
-            [selectors.top_level_function.subselectors.parameter]
-                search_text = "parameters"
-            [selectors.top_level_function.subselectors.for_loop]
-                search_text = "body"
-    [selectors.function]
-        model_element = "function"
-        description = "Selects functions"
-        top_level_selector = false
-        [[selectors.function.variations]]
-            regex_format_string = "function"
-            name = 3
-            parameters = 4
-            body = 7
-            explicit_type = 6
-        [selectors.function.subselectors]
-            [selectors.function.subselectors.function]
-                search_text = "body"
-            [selectors.function.subselectors.class]
-                search_text = "body"
-            [selectors.function.subselectors.statement]
-                search_text = "body"
-            [selectors.function.subselectors.parameter]
-                search_text = "parameters"
-            [selectors.function.subselectors.for_loop]
-                search_text = "body"
-    [selectors.parameter]
-        model_element = "variable"
-        description = "Selects information pertaining to parameters"
-        top_level_selector = false
-        [[selectors.parameter.variations]]
-            regex_format_string = "parameter"
-            name = 1
-            type = 3
-            initial_value = 5
     [selectors.class]
         model_element = "class"
         description = "Selects classes"
@@ -164,6 +132,40 @@
                 search_text = "body"
             [selectors.class.subselectors.function]
                 search_text = "body"
+    [selectors.function]
+        model_element = "function"
+        description = "Selects functions"
+        top_level_selector = true
+        [[selectors.function.variations]]
+            regex_format_string = "function"
+            name = 2
+            parameters = 3
+            body = 6
+            explicit_type = 5
+        [selectors.function.subselectors]
+            [selectors.function.subselectors.function]
+                search_text = "body"
+            [selectors.function.subselectors.class]
+                search_text = "body"
+            [selectors.function.subselectors.statement]
+                search_text = "body"
+            [selectors.function.subselectors.parameter]
+                search_text = "parameters"
+            [selectors.function.subselectors.for_loop]
+                search_text = "body"
+            [selectors.function.subselectors.while_loop]
+                search_text = "body"
+            [selectors.function.subselectors.if_condition]
+                search_text = "body"
+    [selectors.parameter]
+        model_element = "variable"
+        description = "Selects information pertaining to parameters"
+        top_level_selector = false
+        [[selectors.parameter.variations]]
+            regex_format_string = "parameter"
+            name = 1
+            type = 3
+            initial_value = 5
     [selectors.attribute]
         model_element = "variable"
         description = "selects attributes under classes"
@@ -186,6 +188,36 @@
                 search_text = "body"
             [selectors.for_loop.subselectors.statement]
                 search_text = "body"
+    [selectors.while_loop]
+        model_element = "while_loop"
+        description = "selects while loops"
+        top_level_selector = false
+        [[selectors.while_loop.variations]]
+            regex_format_string = "while_loop"
+            loop = 1
+            body = 3
+            condition = 2
+        [selectors.while_loop.subselectors]
+            [selectors.while_loop.subselectors.for_loop]
+                search_text = "body"
+            [selectors.while_loop.subselectors.while_loop]
+                search_text = "body"
+            [selectors.while_loop.subselectors.statement]
+                search_text = "body"
+
+    [selectors.if_condition]
+        model_element = "if_condition"
+        description = "selects condition blocks"
+        top_level_selector = false
+        [[selectors.if_condition.variations]]
+            regex_format_string = "if_condition"
+            condition = 2
+            true_block = 3
+        [[selectors.if_condition.variations]]
+            regex_format_string = "if_else_condition"
+            condition = 2
+            true_block = 3
+            false_block = 6
     [selectors.statement]
         model_element = "statement"
         description = "selects statements from a string without whitespace prefix"
@@ -229,6 +261,6 @@
     sources = []
     builtins = ["print"]
 [json_mappings]
-    top_level_function = "functions"
+    function = "functions"
     class = "classes"
     dependency = "dependencies"

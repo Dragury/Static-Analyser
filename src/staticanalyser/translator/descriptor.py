@@ -53,10 +53,6 @@ class Directive(object):
     def apply(self, file_contents: str) -> str:
         r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
         for v in self._variations:
-            if self._name == "redecorate":
-                print(file_contents)
-                print(r.build(v.get("regex_format_string")))
-                print(re.findall(r.build(v.get("regex_format_string")), file_contents))
             file_contents = re.sub(
                 r.build(v.get("regex_format_string")),
                 v.get("regex_replace"),
@@ -108,6 +104,9 @@ class Selector(object):
             r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
             regex: str = r.build(v.get("regex_format_string"))
             artefacts: list = re.findall(regex, file_contents)
+            if self._name == "if_condition":
+                print(r.build(v.get("regex_format_string")))
+                print(artefacts)
             for artefact in artefacts:
                 artefact_info: dict = {}
                 for k in v.keys():
@@ -146,6 +145,8 @@ class SelectorType(Enum):
     sa_variable = "variable"
     sa_statement = "statement"
     sa_for_loop = "for_loop"
+    sa_while_loop = "while_loop"
+    sa_if_condition = "if_condition"
     sa_dependency = "dependency"
     sa_basic_string = "basic_string"
     _class_map: dict = {
@@ -154,7 +155,9 @@ class SelectorType(Enum):
         sa_variable: model.VariableModel,
         sa_statement: model.StatementModel,
         sa_for_loop: model.ForLoopModel,
+        sa_while_loop: model.WhileLoop,
         sa_dependency: model.DependencyModel,
+        sa_if_condition: model.ConditionModel,
         sa_basic_string: model.BasicString
     }
 
@@ -177,7 +180,6 @@ class Preprocessor(object):
     def apply(self, file_contents: str):
         directive: Directive
         for directive in self._directives:
-            print(directive)
             file_contents = directive.apply(file_contents)
         return file_contents
 
@@ -227,25 +229,33 @@ class Descriptor(object):
     def preprocess(self, file_contents: str) -> str:
         return self._preprocessor.apply(file_contents)
 
-    def select(self, file_contents: str) -> dict:
+    def select(self, file_contents: str, prefix=None) -> dict:
         res: dict = {}
         selector: Selector
         for selector in self._selectors:
             if selector is not None:
-                res[selector.get_name()] = selector.select(file_contents)
+                res[selector.get_name()] = selector.select(file_contents, prefix=prefix or self._lang)
         return res
 
     def __str__(self):
         return self._lang
 
-    def _get_json_path(self, output_path: path, input_file: str, source_paths: path):
+    def _get_shortest_path(self, input_file: str, source_paths: list) -> str:
         cur_source_path = None
         for p in source_paths:
             if not cur_source_path or len(path.relpath(input_file, p)) < len(
                     path.relpath(input_file, cur_source_path)):
                 cur_source_path = p
+        return cur_source_path
 
-        model_path: path = path.relpath(input_file, cur_source_path)
+    def _get_base_prefix(self, filename: str, extension: str, source_paths: list):
+        file_path: str = self._get_shortest_path(filename, source_paths)
+        return "{}.{}".format(self._lang, path.relpath(filename, file_path)[:-1*len(".{}".format(extension))].replace('/', '.'))
+
+    def _get_json_path(self, output_path: path, input_file: str, source_paths: list):
+        object_path = self._get_shortest_path(input_file, source_paths)
+
+        model_path: path = path.relpath(input_file, object_path)
         return path.join(output_path, self._lang, model_path) + ".json"
 
     def output_json(self, output_path: path, input_file: str, source_paths: path, sa_model: dict,
@@ -294,9 +304,10 @@ class Descriptor(object):
         if model_expired:
             print("Translating {}".format(file))
             file_contents = self.preprocess(file_contents)
-            print("File after:")
-            print(file_contents)
-            selected_entities: dict = self.select(file_contents)
+            # print("File after:")
+            # print(file_contents)
+            prefix: str = self._get_base_prefix(file, file_extension, source_paths)
+            selected_entities: dict = self.select(file_contents, prefix)
 
             # print(selected_entities)
 

@@ -28,6 +28,19 @@ class ModelGeneric(object):
         pass
 
 
+class ControlFlowGeneric(ModelGeneric):
+    _control_flow: dict = None
+
+    def flatten_dict(self, *targets) -> dict:
+        res: dict = {}
+        for k in self._control_flow.keys():
+            if k in targets:
+                res[k] = [l.flatten() for l in self._control_flow[k]]
+            else:
+                res[k] = self._control_flow[k]
+        return res
+
+
 class NamedModelGeneric(ModelGeneric):
     _global_identifier: ReferenceModel = None
     _name: str = None
@@ -111,52 +124,98 @@ class StatementModel(ModelGeneric):
         }
 
 
-class ForLoopModel(ModelGeneric):
+class ForLoopModel(ControlFlowGeneric):
     _loop: str = None
     _body: str = None  # first body, e.g. if true
     _body_parsed: list = None
-    _sub_loops: list = None
+    _control_flow: dict = None
 
     def __init__(self, language: str, prefix: str, data: dict):
         self._loop = data.get("loop")
         self._body = data.get("body")
-        pass
-        # TODO resolve type and variation
+        self._control_flow = {}
 
     def flatten(self) -> dict:
+        self._control_flow = self.flatten_dict("for", "while", "if")
         return {
             "loop": self._loop,
             "body": self._body,
             "body_parsed": [s.flatten() for s in self._body_parsed],
-            "sub_loops": [l.flatten() for l in self._sub_loops]
+            "control_flow": self._control_flow
         }
 
     def add_subselection(self, sub_selection: dict):
         self._body_parsed = sub_selection.get("statement") or []
-        self._sub_loops = sub_selection.get("for_loop") or []
+        self._control_flow["for"] = sub_selection.get("for_loop") or []
+        self._control_flow["while"] = sub_selection.get("while_loop") or []
 
 
-class ConditionModel(object):
+class WhileLoop(ControlFlowGeneric):
+    _loop: str = None
+    _body: str = None  # first body, e.g. if true
+    _body_parsed: list = None
+    _condition: str = None
+    _control_flow: dict = None
+
+    def __init__(self, language: str, prefix: str, data: dict):
+        self._loop = data.get("loop")
+        self._body = data.get("body")
+        self._condition = data.get("condition")
+        self._control_flow = {}
+        pass
+
+    def flatten(self) -> dict:
+        self._control_flow = self.flatten_dict("for", "while", "if")
+        return {
+            "loop": self._loop,
+            "condition": self._condition,
+            "body": self._body,
+            "body_parsed": [s.flatten() for s in self._body_parsed],
+            "control_flow": self._control_flow
+        }
+
+    def add_subselection(self, sub_selection: dict):
+        self._body_parsed = sub_selection.get("statement") or []
+        self._control_flow["for"] = sub_selection.get("for_loop") or []
+        self._control_flow["while"] = sub_selection.get("while_loop") or []
+
+
+class ConditionModel(ControlFlowGeneric):
     _condition: StatementModel = None
-    _true_block: list = None
-    _false_block: list = None
+    def __init__(self, language:str, prefix: str, data:dict):
+        self._condition = data.get("condition")
+        self._control_flow = {
+            "true": data.get("true_block") or [],
+            "false": data.get("false_block") or []
+        }
+
+    def flatten(self) -> dict:
+        # self._control_flow = self.flatten_dict("true", "false")
+        return {
+            "condition": self._condition,
+            "blocks": self._control_flow
+        }
 
 
-class FunctionModel(NamedModelGeneric):
+class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
     _parameters: list = None
     _statements: list = None
-    _for_loops: list = None
+    _control_flow: dict = None
 
     def __init__(self, language: str, prefix: str, data: dict):
         super(FunctionModel, self).__init__(language, prefix, data)
         self._parameters = data.get("parameters")
+        self._control_flow = {}
 
     def add_subselection(self, sub_selection: dict):
         self._parameters = sub_selection.get("parameter") or []
         self._statements = sub_selection.get("statement") or []
-        self._for_loops = sub_selection.get("for_loop") or []
+        self._control_flow["for"] = sub_selection.get("for_loop") or []
+        self._control_flow["while"] = sub_selection.get("while_loop") or []
+        self._control_flow["if"] = sub_selection.get("if_condition") or []
 
     def flatten(self):
+        self._control_flow = self.flatten_dict("for", "while", "if")
         return {
             "model_type": "function",
             "name": self._name,
@@ -165,7 +224,7 @@ class FunctionModel(NamedModelGeneric):
             "parameters": [p.flatten() for p in self._parameters],
             "body": self._body,
             "body_parsed": [s.flatten() for s in self._statements],
-            "for_loops": [l.flatten() for l in self._for_loops]
+            "control_flow": self._control_flow
         }
 
 
@@ -204,7 +263,7 @@ class DependencyModel(ModelGeneric):
         return {
             "type": "dependency",
             "source": self._source,
-            "provides": [p.flatten() for p in self._provides]
+            "provides": [p.flatten() for p in self._provides if type(p) != str]
         }
 
 

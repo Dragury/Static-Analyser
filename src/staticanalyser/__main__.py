@@ -25,4 +25,5 @@ if __name__ == "__main__":
         print("GUI MODE!!!")  # GUI MODE
     else:
         cli()
+        print("YAY!")
     sys.exit(0)
