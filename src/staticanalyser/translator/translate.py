@@ -55,6 +55,7 @@ def translate(input_files: list, options: dict = None) -> int:
 
 
     # TODO create file list to iterate through
+    mp.set_start_method('spawn')
     file_list: list = input_files
     file_queue: mp.Queue = mp.Queue()
     for file in file_list:

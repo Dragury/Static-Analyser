@@ -12,7 +12,7 @@ def cli():
 
 @cli.command("translate")
 @click.argument("file", nargs=-1, type=click.Path(exists=True))
-@click.option("-j", "--jobs", default=1)
+@click.option("-j", "--jobs", default=4)
 def translate_cmd(file: list, jobs: int):
     options: dict = {
         "jobs": jobs

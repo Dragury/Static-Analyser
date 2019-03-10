@@ -48,9 +48,15 @@
         regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{block_body}})"
         dependencies = ["block_body"]
     [format_strings.attribute]
-        regex = "(\\s*)?({{name}})\\s*(:\\s*({{name}})\\s*)?=\\s*{{value}}"
+        regex = "^(\\s*)?({{name}})\\s*(:\\s*({{name}})\\s*)?=\\s*{{value}}"
         dependencies = ["value"]
+    [format_strings.dictionary]
+        regex = "{(\\s*{{string}}\\s*:\\s*{{value_no_dict}}\\s*,?\\s*)?}"
+        dependencies = ["value_no_dict"]
     [format_strings.value]
+        regex = "({{name}}|{{string}}|{{number}}|{{boolean}}|{{dictionary}})"
+        dependencies = ["dictionary"]
+    [format_strings.value_no_dict]
         regex = "({{name}}|{{string}}|{{number}}|{{boolean}})"
     [format_strings.bare_statement]
         regex = "(\\s*)((({{name}})\\s*=\\s*)?(\\S.*))"
@@ -258,8 +264,11 @@
     name = "python3"
     description = "Support for the python3 language"
     file_extensions = ["py", "pyw"]
-    sources = []
-    builtins = ["print"]
+    [info.sources]
+        mac = ["/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages"]
+    [info.builtins]
+        functions = ["print", "str", "dict", "int", "None", "list"]
+        types = ["str", "dict", "int", "None", "list"]
 [json_mappings]
     function = "functions"
     class = "classes"

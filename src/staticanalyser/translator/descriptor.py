@@ -104,9 +104,6 @@ class Selector(object):
             r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
             regex: str = r.build(v.get("regex_format_string"))
             artefacts: list = re.findall(regex, file_contents)
-            if self._name == "if_condition":
-                print(r.build(v.get("regex_format_string")))
-                print(artefacts)
             for artefact in artefacts:
                 artefact_info: dict = {}
                 for k in v.keys():
@@ -234,7 +231,7 @@ class Descriptor(object):
         selector: Selector
         for selector in self._selectors:
             if selector is not None:
-                res[selector.get_name()] = selector.select(file_contents, prefix=prefix or self._lang)
+                res[self._json_mappings.get(selector.get_name()) or selector.get_name()] = selector.select(file_contents, prefix=prefix or self._lang)
         return res
 
     def __str__(self):
@@ -274,11 +271,11 @@ class Descriptor(object):
                 if type(se) is list:
                     for i in range(len(se)):
                         se.append(se.pop(0).flatten())
-            k: list = [*sa_model.keys()]
-            for key in self._json_mappings.keys():
-                if key in sa_model.keys():
-                    sa_model[self._json_mappings[key]] = sa_model[key]
-                    del sa_model[key]
+            # k: list = [*sa_model.keys()]
+            # for key in self._json_mappings.keys():
+            #     if key in sa_model.keys():
+            #         sa_model[self._json_mappings[key]] = sa_model[key]
+            #         del sa_model[key]
 
             validate(sa_model, model.SCHEMA)
             json_output = json.dumps(sa_model, indent=4)
@@ -289,31 +286,42 @@ class Descriptor(object):
         # TODO normalise whitespace for better parsing, either \t or 4 spaces
         # TODO check for local file so I know the namespace for where entities live(global vs local)
         # TODO check stored model for existing model + different hash from source
-        with open(file, "r") as f:
-            file_contents: str = f.read()
-        file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
-        model_expired: bool = True
-        if path.exists(self._get_json_path(local_dir, file, source_paths)):
-            with open(self._get_json_path(local_dir, file, source_paths), "r") as m:
-                model = json.load(m)
-                if model.get("hash") == file_hash:
-                    model_expired = False
+        try:
+            with open(file, "r") as f:
+                file_contents: str = f.read()
+            file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
+            model_expired: bool = True
+            if path.exists(self._get_json_path(local_dir, file, source_paths)):
+                with open(self._get_json_path(local_dir, file, source_paths), "r") as m:
+                    json_model = json.load(m)
+                    if json_model.get("hash") == file_hash:
+                        model_expired = False
 
-        # print("File before:")
-        # print(file_contents)
-        if model_expired:
-            print("Translating {}".format(file))
-            file_contents = self.preprocess(file_contents)
-            # print("File after:")
+            # print("File before:")
             # print(file_contents)
-            prefix: str = self._get_base_prefix(file, file_extension, source_paths)
-            selected_entities: dict = self.select(file_contents, prefix)
+            if model_expired:
+                print("Translating {}".format(file))
+                file_contents = self.preprocess(file_contents)
+                # print("File after:")
+                # print(file_contents)
+                prefix: str = self._get_base_prefix(file, file_extension, source_paths)
+                selected_entities: dict = self.select(file_contents, prefix)
 
-            # print(selected_entities)
+                # print(selected_entities)
+                # TODO resolve references, cull duplicates
+                klazz: model.ClassModel
+                for klazz in selected_entities.get("classes") or []:
+                    func: model.FunctionModel
+                    for func in klazz.get_functions():
+                        function_hash = func.get_hash()
+                        tlfunc: model.FunctionModel
+                        for tlfunc in selected_entities.get("functions") or []:
+                            if tlfunc.get_hash() == function_hash:
+                                selected_entities.get("functions").remove(tlfunc)
 
-            self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
-            # TODO resolve references, cull duplicates
-            # TODO run json schema check
-            print("Translation done for {}".format(file))
-        else:
-            print("Skipping {}".format(file))
+                self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
+                print("Translation done for {}".format(file))
+            else:
+                print("Skipping {}".format(file))
+        except UnicodeDecodeError:
+            print("Skipping {} due to decoding error".format(file))

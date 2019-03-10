@@ -78,6 +78,9 @@ class ClassModel(NamedModelGeneric):
         self._attributes = sub_selection.get("attribute".format(self._lang))
         self._functions = sub_selection.get("function".format(self._lang))
 
+    def get_functions(self) -> list:
+        return self._functions
+
     def flatten(self) -> dict:
         flattened_functions: list = [f.flatten() for f in self._functions]
         flattened_subclasses: list = [c.flatten() for c in self._subclasses]
