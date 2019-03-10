@@ -65,6 +65,7 @@ setup(
         "staticanalyser.shared",
         "staticanalyser.navigator",
         "staticanalyser.translator",
+        "staticanalyser.regexbuilder",
         "staticanalyser"
     ],
     cmdclass={
