@@ -44,23 +44,25 @@ class SAInstaller(install):
 
 
 setup(
-    name="Static Analyser",
+    name="staticanalyser",
     version="0.1",
     description="A static analysis program",
     license="MIT",
     install_requires=[
-        "arghandler",
+        "click",
         "toml",
         "jsonschema"
     ],
     package_dir={
         '': 'src'
     },
+    zip_safe=False,
     packages=[
         "staticanalyser.hunter",
         "staticanalyser.shared",
         "staticanalyser.navigator",
-        "staticanalyser.translator"
+        "staticanalyser.translator",
+        "staticanalyser"
     ],
     cmdclass={
         'install': SAInstaller
