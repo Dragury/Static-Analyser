@@ -56,6 +56,9 @@ setup(
     package_dir={
         '': 'src'
     },
+    package_data={
+        '': ['*.toml', '*.json']
+    },
     zip_safe=False,
     packages=[
         "staticanalyser.hunter",
