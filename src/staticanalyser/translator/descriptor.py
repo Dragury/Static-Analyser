@@ -7,11 +7,13 @@ from jsonschema import validate
 
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
+from staticanalyser.shared.config import get_language_source_dirs
 import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
 import re
 import json
 from os import getcwd, mkdir
+import sys
 
 
 class RegexBuilderFactory(object):
@@ -103,6 +105,8 @@ class Selector(object):
         for v in self._variations:
             r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
             regex: str = r.build(v.get("regex_format_string"))
+            # if self._name == "function":
+            #     print(r.build(v.get("regex_format_string")))
             artefacts: list = re.findall(regex, file_contents)
             for artefact in artefacts:
                 artefact_info: dict = {}
@@ -146,6 +150,7 @@ class SelectorType(Enum):
     sa_if_condition = "if_condition"
     sa_dependency = "dependency"
     sa_basic_string = "basic_string"
+    sa_operation = "operation"
     _class_map: dict = {
         sa_function: model.FunctionModel,
         sa_class: model.ClassModel,
@@ -155,7 +160,8 @@ class SelectorType(Enum):
         sa_while_loop: model.WhileLoop,
         sa_dependency: model.DependencyModel,
         sa_if_condition: model.ConditionModel,
-        sa_basic_string: model.BasicString
+        sa_basic_string: model.BasicString,
+        sa_operation: model.OperatorModel
     }
 
     @staticmethod
@@ -182,12 +188,14 @@ class Preprocessor(object):
 
 
 class Descriptor(object):
+    _language_global_lock: dict = {}
     _descriptors: dict = {}
     _lang: str = None
     _syntax_descriptor: dict = None
     _preprocessor: Preprocessor = None
     _selectors: list = None
     _json_mappings: dict = None
+    _global_source_dirs: list = None
 
     @staticmethod
     def get_descriptor(language: str):
@@ -282,7 +290,7 @@ class Descriptor(object):
 
             print(json_output, file=f)
 
-    def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path = getcwd()):
+    def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path, force: bool):
         # TODO normalise whitespace for better parsing, either \t or 4 spaces
         # TODO check for local file so I know the namespace for where entities live(global vs local)
         # TODO check stored model for existing model + different hash from source
@@ -291,7 +299,7 @@ class Descriptor(object):
                 file_contents: str = f.read()
             file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
             model_expired: bool = True
-            if path.exists(self._get_json_path(local_dir, file, source_paths)):
+            if path.exists(self._get_json_path(local_dir, file, source_paths)) and not force:
                 with open(self._get_json_path(local_dir, file, source_paths), "r") as m:
                     json_model = json.load(m)
                     if json_model.get("hash") == file_hash:

@@ -14,12 +14,7 @@ import staticanalyser.shared.platform_constants as consts
 class SAInstaller(install):
     def __init__(self, *args, **kwargs):
         super(SAInstaller, self).__init__(*args, **kwargs)
-        if "IN_TEST" in environ.keys():
-            self._nuke(consts.GLOBAL_DATA_DIR)
         self.setup_config()
-
-    def _nuke(self, dir: path):
-        rmtree(dir, ignore_errors=True)
 
     def _create_directories(self, directories: list):
         for directory in directories:
@@ -39,8 +34,8 @@ class SAInstaller(install):
             self._create_directories([consts.GLOBAL_DATA_DIR, consts.LANGS_DIR, consts.MODEL_DIR])
             defaults_dir = opath.join(opath.dirname(__file__), "src", "staticanalyser", "defaults")
 
-            self.copy_file(opath.join(defaults_dir, "default_config.toml"), consts.CONFIG_LOCATION)
-            self.copy_file(opath.join(defaults_dir, "python3.toml"), opath.join(consts.LANGS_DIR, "python3.toml"))
+        self.copy_file(opath.join(defaults_dir, "default_config.toml"), consts.CONFIG_LOCATION)
+        self.copy_file(opath.join(defaults_dir, "python3.toml"), opath.join(consts.LANGS_DIR, "python3.toml"))
 
 
 setup(

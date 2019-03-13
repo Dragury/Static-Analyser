@@ -21,12 +21,17 @@
         regex = "if\\s+__name__\\s*==\\s*\\\"__main__\\\"\\s*:"
 
 [format_strings]
+    [format_strings.type]
+        regex = "{{name}}\\[{{name}}\\]"
+        # TODO recursive substitution. probably set a maximum depth and allow override from cli
     [format_strings.block_body]
         regex = "{{statement}}*{{statement_no_newline}}"
     [format_strings.exploded_parameters]
         regex = ",\\s*\\n"
     [format_strings.dangling_opening_bracket]
         regex = "((\\(|\\[|{)\\s*\\n\\s*)"
+    [format_strings.dangling_closing_bracket]
+        regex = "(\\s*\\n\\s*(\\)|\\]|}))"
     [format_strings.decorator]
         regex = "@({{name}})"
     [format_strings.commented_line]
@@ -95,6 +100,9 @@
         [[directives.force_single_line.variations]]
             regex_format_string = "dangling_opening_bracket"
             regex_replace = " \\2"
+        [[directives.force_single_line.variations]]
+            regex_format_string = "dangling_closing_bracket"
+            regex_replace = "\\2 "
     [directives.strip_comments]
         description = "Remove any comments from the code"
         [[directives.strip_comments.variations]]
@@ -119,7 +127,7 @@
         description = "create a pseudo main method for the file"
         [[directives.generate_main.variations]]
             regex_format_string = "entrypoint"
-            regex_replace = "def main() -> int:"
+            regex_replace = "def sa_python_main():"
 
 [selectors]
     [selectors.class]
@@ -234,7 +242,7 @@
             rhs = 4
     [selectors.operation]
         model_element = false
-        description = "breaks appart operations "
+        description = "breaks apart operations"
         top_level_selector = false
     [selectors.dependency]
         model_element = "dependency"
@@ -264,10 +272,13 @@
     name = "python3"
     description = "Support for the python3 language"
     file_extensions = ["py", "pyw"]
-    [info.sources]
-        mac = ["/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages"]
+    [info.global_sources]
+        posix = [
+        "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages",
+        "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7"
+        ]
     [info.builtins]
-        functions = ["print", "str", "dict", "int", "None", "list"]
+        functions = ["print"]
         types = ["str", "dict", "int", "None", "list"]
 [json_mappings]
     function = "functions"

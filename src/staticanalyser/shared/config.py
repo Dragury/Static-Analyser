@@ -6,14 +6,16 @@ from staticanalyser.shared.platform_constants import LANGS_DIR
 
 _CONFIG_ITEMS = {
     "languages": [],
-    "filetypes": {}
+    "filetypes": {},
+    "source_dirs": {}
 }
 __all__ = ['get_languages', 'get_languages_by_extension', 'get_filetypes', 'get_file_extensions']
 
 langs_dir = Path(LANGS_DIR)
 for file in langs_dir.iterdir():
     with open(str(file), "r") as lang_file:
-        lang_info = toml.load(lang_file).get("info")
+
+        lang_info: dict = toml.load(lang_file).get("info")
         if lang_info:
             _CONFIG_ITEMS.get("languages").append(lang_info.get("name"))
             for extension in lang_info.get("file_extensions"):
@@ -21,7 +23,7 @@ for file in langs_dir.iterdir():
                     _CONFIG_ITEMS.get("filetypes")[extension] = [lang_info.get("name")]
                 else:
                     _CONFIG_ITEMS.get("filetypes").get(extension).append(lang_info.get("name"))
-
+            _CONFIG_ITEMS.get("source_dirs")[lang_info.get("name")] = lang_info.get("global_sources")
 
 
 # CONFIG SUBFUNCTIONS
@@ -60,3 +62,11 @@ def get_filetypes() -> dict:
 
 def get_file_extensions() -> list:
     return list(get_filetypes().keys())
+
+
+def get_source_dirs() -> dict:
+    return _get_config_item()
+
+
+def get_language_source_dirs(lang: str) -> dict:
+    return get_source_dirs().get(lang) or []

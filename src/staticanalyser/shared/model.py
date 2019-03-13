@@ -108,6 +108,13 @@ class OperatorModel(ModelGeneric):
     _rhs: object = None
     _type: OperatorType = None
 
+    def __init__(self, language: str, prefix: str, data: dict):
+        self._lhs = data.get("lhs")
+        self._rhs = data.get("rhs")
+
+    def add_subselection(self, sub_selection: dict):
+        self._lhs = OperatorModel(None, None, sub_selection.get())
+
     def flatten(self) -> dict:
         pass
 
@@ -185,7 +192,8 @@ class WhileLoop(ControlFlowGeneric):
 
 class ConditionModel(ControlFlowGeneric):
     _condition: StatementModel = None
-    def __init__(self, language:str, prefix: str, data:dict):
+
+    def __init__(self, language: str, prefix: str, data: dict):
         self._condition = data.get("condition")
         self._control_flow = {
             "true": data.get("true_block") or [],
