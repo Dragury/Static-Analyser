@@ -3,7 +3,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "description": "A representation of a model that has been extracted from code",
   "type": "object",
-  "required": ["functions", "classes"],
+  "required": [
+    "functions",
+    "classes",
+    "dependencies"
+  ],
   "properties": {
     "functions": {
       "type": "array",
@@ -15,6 +19,12 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/class"
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/dependency"
       }
     }
   },
@@ -42,15 +52,23 @@
           "description": "The parameters than can be passed to the function"
         },
         "body": {
-          "type": "array",
+          "type": "string",
           "description": "The body of the function"
+        },
+        "body_parsed": {
+          "type": "array",
+          "description": "The parsed body of the function"
         },
         "return_type": {
           "type": "string",
           "description": "The return type of the function"
         }
       },
-      "required": ["model_type","global_id","hash"]
+      "required": [
+        "model_type",
+        "global_id",
+        "hash"
+      ]
     },
     "class": {
       "type": "object",
@@ -84,7 +102,34 @@
           "type": "string"
         }
       },
-      "required": ["model_type", "name", "global_id", "hash", "subclasses", "methods"]
+      "required": [
+        "model_type",
+        "name",
+        "global_id",
+        "hash",
+        "subclasses",
+        "methods"
+      ]
+    },
+    "dependency": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Specifies that it is an import"
+        },
+        "source": {
+          "type": "string",
+          "description": "The source of the imported entities"
+        },
+        "provides": {
+          "type": "array",
+          "description": "The entities that are provided by this dependency",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

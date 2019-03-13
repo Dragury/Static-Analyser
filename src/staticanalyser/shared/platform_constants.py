@@ -15,3 +15,4 @@ else:  # name == "posix" must be some variation of linux? if not true then it sh
 MODEL_DIR = path.join(GLOBAL_DATA_DIR, "models")
 LANGS_DIR = path.join(GLOBAL_DATA_DIR, "langs")
 CONFIG_LOCATION = path.join(GLOBAL_DATA_DIR, "config.toml")
+SCHEMA_LOCATION = path.join(path.dirname(__file__), "model_schema.json")

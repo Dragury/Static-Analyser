@@ -1,12 +1,19 @@
-from io import TextIOWrapper
+import datetime
+from hashlib import md5
 from enum import Enum
 from os import path
+from pathlib import Path
+from jsonschema import validate
+
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR
+from staticanalyser.shared.config import get_language_source_dirs
 import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
 import re
 import json
+from os import getcwd, mkdir
+import sys
 
 
 class RegexBuilderFactory(object):
@@ -98,6 +105,8 @@ class Selector(object):
         for v in self._variations:
             r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
             regex: str = r.build(v.get("regex_format_string"))
+            # if self._name == "function":
+            #     print(r.build(v.get("regex_format_string")))
             artefacts: list = re.findall(regex, file_contents)
             for artefact in artefacts:
                 artefact_info: dict = {}
@@ -136,11 +145,23 @@ class SelectorType(Enum):
     sa_class = "class"
     sa_variable = "variable"
     sa_statement = "statement"
+    sa_for_loop = "for_loop"
+    sa_while_loop = "while_loop"
+    sa_if_condition = "if_condition"
+    sa_dependency = "dependency"
+    sa_basic_string = "basic_string"
+    sa_operation = "operation"
     _class_map: dict = {
         sa_function: model.FunctionModel,
         sa_class: model.ClassModel,
         sa_variable: model.VariableModel,
-        sa_statement: model.StatementModel
+        sa_statement: model.StatementModel,
+        sa_for_loop: model.ForLoopModel,
+        sa_while_loop: model.WhileLoop,
+        sa_dependency: model.DependencyModel,
+        sa_if_condition: model.ConditionModel,
+        sa_basic_string: model.BasicString,
+        sa_operation: model.OperatorModel
     }
 
     @staticmethod
@@ -162,17 +183,19 @@ class Preprocessor(object):
     def apply(self, file_contents: str):
         directive: Directive
         for directive in self._directives:
-            print(directive)
             file_contents = directive.apply(file_contents)
         return file_contents
 
 
 class Descriptor(object):
+    _language_global_lock: dict = {}
     _descriptors: dict = {}
     _lang: str = None
     _syntax_descriptor: dict = None
     _preprocessor: Preprocessor = None
     _selectors: list = None
+    _json_mappings: dict = None
+    _global_source_dirs: list = None
 
     @staticmethod
     def get_descriptor(language: str):
@@ -193,6 +216,7 @@ class Descriptor(object):
             self._configure_regex_builder(language_config.get("snippets"), language_config.get("format_strings"))
             self._load_preprocessor(language_config.get("directives"))
             self._load_selectors(language_config.get("selectors"))
+            self._json_mappings = language_config.get("json_mappings") or {}
 
     def _configure_regex_builder(self, snippets: dict, format_strings: dict):
         RegexBuilderFactory.get_builder(self._lang, snippets, format_strings)
@@ -210,40 +234,102 @@ class Descriptor(object):
     def preprocess(self, file_contents: str) -> str:
         return self._preprocessor.apply(file_contents)
 
-    def select(self, file_contents: str) -> dict:
+    def select(self, file_contents: str, prefix=None) -> dict:
         res: dict = {}
         selector: Selector
         for selector in self._selectors:
             if selector is not None:
-                res[selector.get_name()] = selector.select(file_contents)
+                res[self._json_mappings.get(selector.get_name()) or selector.get_name()] = selector.select(file_contents, prefix=prefix or self._lang)
         return res
 
     def __str__(self):
         return self._lang
 
-    def parse(self, file: TextIOWrapper):
-        temp_map: dict = {
-            "top_level_function": "functions",
-            "class": "classes",
-            "import": "dependencies"
-        }
-        # TODO check for local file so I know the namespace for where entities live(global vs local)
-        file_contents: str = file.read()
-        print("File before:")
-        print(file_contents)
-        file_contents = self.preprocess(file_contents)
-        print("File after:")
-        print(file_contents)
-        selected_entities: dict = self.select(file_contents)
-        print(selected_entities)
-        with open("out.json", "w") as f:
+    def _get_shortest_path(self, input_file: str, source_paths: list) -> str:
+        cur_source_path = None
+        for p in source_paths:
+            if not cur_source_path or len(path.relpath(input_file, p)) < len(
+                    path.relpath(input_file, cur_source_path)):
+                cur_source_path = p
+        return cur_source_path
+
+    def _get_base_prefix(self, filename: str, extension: str, source_paths: list):
+        file_path: str = self._get_shortest_path(filename, source_paths)
+        return "{}.{}".format(self._lang, path.relpath(filename, file_path)[:-1*len(".{}".format(extension))].replace('/', '.'))
+
+    def _get_json_path(self, output_path: path, input_file: str, source_paths: list):
+        object_path = self._get_shortest_path(input_file, source_paths)
+
+        model_path: path = path.relpath(input_file, object_path)
+        return path.join(output_path, self._lang, model_path) + ".json"
+
+    def output_json(self, output_path: path, input_file: str, source_paths: path, sa_model: dict,
+                    file_hash: str):
+        file_path: path = self._get_json_path(output_path, input_file, source_paths)
+        file_dir: path = path.abspath(path.dirname(file_path))
+        if not path.exists(file_dir):
+            Path(file_dir).mkdir(parents=True, exist_ok=True)
+        with open(file_path, "w") as f:
+            sa_model["hash"] = file_hash
+            sa_model["file_name"] = str(input_file)
+            sa_model["date_generated"] = str(datetime.datetime.now())
             group: str
-            for group in selected_entities.keys():
-                se: list = selected_entities.get(group)
-                for i in range(len(se)):
-                    se.append(se.pop(0).flatten())
-            k: list = [*selected_entities.keys()]
-            for key in k:
-                selected_entities[temp_map.get(key.split(".")[-1:][0])] = selected_entities[key]
-                del selected_entities[key]
-            print(json.dumps(selected_entities), file=f)
+            for group in sa_model.keys():
+                se: list = sa_model.get(group)
+                if type(se) is list:
+                    for i in range(len(se)):
+                        se.append(se.pop(0).flatten())
+            # k: list = [*sa_model.keys()]
+            # for key in self._json_mappings.keys():
+            #     if key in sa_model.keys():
+            #         sa_model[self._json_mappings[key]] = sa_model[key]
+            #         del sa_model[key]
+
+            validate(sa_model, model.SCHEMA)
+            json_output = json.dumps(sa_model, indent=4)
+
+            print(json_output, file=f)
+
+    def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path, force: bool):
+        # TODO normalise whitespace for better parsing, either \t or 4 spaces
+        # TODO check for local file so I know the namespace for where entities live(global vs local)
+        # TODO check stored model for existing model + different hash from source
+        try:
+            with open(file, "r") as f:
+                file_contents: str = f.read()
+            file_hash: str = md5(file_contents.encode("utf-8")).hexdigest()
+            model_expired: bool = True
+            if path.exists(self._get_json_path(local_dir, file, source_paths)) and not force:
+                with open(self._get_json_path(local_dir, file, source_paths), "r") as m:
+                    json_model = json.load(m)
+                    if json_model.get("hash") == file_hash:
+                        model_expired = False
+
+            # print("File before:")
+            # print(file_contents)
+            if model_expired:
+                print("Translating {}".format(file))
+                file_contents = self.preprocess(file_contents)
+                # print("File after:")
+                # print(file_contents)
+                prefix: str = self._get_base_prefix(file, file_extension, source_paths)
+                selected_entities: dict = self.select(file_contents, prefix)
+
+                # print(selected_entities)
+                # TODO resolve references, cull duplicates
+                klazz: model.ClassModel
+                for klazz in selected_entities.get("classes") or []:
+                    func: model.FunctionModel
+                    for func in klazz.get_functions():
+                        function_hash = func.get_hash()
+                        tlfunc: model.FunctionModel
+                        for tlfunc in selected_entities.get("functions") or []:
+                            if tlfunc.get_hash() == function_hash:
+                                selected_entities.get("functions").remove(tlfunc)
+
+                self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
+                print("Translation done for {}".format(file))
+            else:
+                print("Skipping {}".format(file))
+        except UnicodeDecodeError:
+            print("Skipping {} due to decoding error".format(file))
