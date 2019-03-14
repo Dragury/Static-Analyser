@@ -6,7 +6,7 @@ from pathlib import Path
 from jsonschema import validate
 
 import toml
-from staticanalyser.shared.platform_constants import LANGS_DIR
+from staticanalyser.shared.platform_constants import LANGS_DIR, PATH_SEPARATOR
 from staticanalyser.shared.config import get_language_source_dirs
 import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
@@ -107,7 +107,7 @@ class Selector(object):
             regex: str = r.build(v.get("regex_format_string"))
             # if self._name == "function":
             #     print(r.build(v.get("regex_format_string")))
-            artefacts: list = re.findall(regex, file_contents)
+            artefacts: list = re.findall(regex, file_contents, flags=re.M)
             for artefact in artefacts:
                 artefact_info: dict = {}
                 for k in v.keys():
@@ -255,7 +255,7 @@ class Descriptor(object):
 
     def _get_base_prefix(self, filename: str, extension: str, source_paths: list):
         file_path: str = self._get_shortest_path(filename, source_paths)
-        return "{}.{}".format(self._lang, path.relpath(filename, file_path)[:-1*len(".{}".format(extension))].replace('/', '.'))
+        return "{}.{}".format(self._lang, path.relpath(filename, file_path)[:-1*len(".{}".format(extension))].replace(PATH_SEPARATOR, '.'))
 
     def _get_json_path(self, output_path: path, input_file: str, source_paths: list):
         object_path = self._get_shortest_path(input_file, source_paths)
