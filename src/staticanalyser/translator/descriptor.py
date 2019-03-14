@@ -7,20 +7,21 @@ from jsonschema import validate
 
 import toml
 from staticanalyser.shared.platform_constants import LANGS_DIR, PATH_SEPARATOR
-from staticanalyser.shared.config import get_language_source_dirs
 import staticanalyser.shared.model as model
 from staticanalyser.regexbuilder import *
 import re
 import json
-from os import getcwd, mkdir
-import sys
 
 
 class RegexBuilderFactory(object):
     _builders: dict = {}
 
     @staticmethod
-    def get_builder(lang: str, snippets: dict = {}, format_strings: dict = {}):
+    def get_builder(lang: str, snippets: dict = None, format_strings: dict = None):
+        if not snippets:
+            snippets = {}
+        if not format_strings:
+            format_strings = {}
         r: RegexBuilder
         if RegexBuilderFactory._builders.get(lang) is None:
             r = RegexBuilder()
@@ -121,10 +122,15 @@ class Selector(object):
                     for selector in self._subselectors.keys():
                         s: Selector = Selector.get_selector_by_name("{}.{}".format(self._lang, selector))
                         if s is not None:
-                            sub_selection[selector] = s.select(
-                                artefact_info.get(self._subselectors[selector]["search_text"]),
-                                prefix
-                            )
+                            for st in self._subselectors[selector]["search_texts"]:
+                                _res = s.select(
+                                    artefact_info.get(st),
+                                    prefix
+                                )
+                                if not sub_selection.get(selector):
+                                    sub_selection[selector] = _res
+                                else:
+                                    sub_selection[selector] += _res
 
                     a.add_subselection(sub_selection)
                     res.append(a)
@@ -319,6 +325,7 @@ class Descriptor(object):
                 # TODO resolve references, cull duplicates
                 klazz: model.ClassModel
                 for klazz in selected_entities.get("classes") or []:
+                    print(klazz)
                     func: model.FunctionModel
                     for func in klazz.get_functions():
                         function_hash = func.get_hash()

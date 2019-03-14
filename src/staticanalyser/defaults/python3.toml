@@ -139,13 +139,12 @@
             name = 1
             body = 4
             subclasses = 3
-        [selectors.class.subselectors]
-            [selectors.class.subselectors.attribute]
-                search_text = "body"
-            [selectors.class.subselectors.class]
-                search_text = "body"
-            [selectors.class.subselectors.function]
-                search_text = "body"
+        [selectors.class.subselectors.attribute]
+            search_texts = ["body"]
+        [selectors.class.subselectors.class]
+            search_texts = ["body"]
+        [selectors.class.subselectors.function]
+            search_texts = ["body"]
     [selectors.function]
         model_element = "function"
         description = "Selects functions"
@@ -156,21 +155,20 @@
             parameters = 3
             body = 6
             explicit_type = 5
-        [selectors.function.subselectors]
-            [selectors.function.subselectors.function]
-                search_text = "body"
-            [selectors.function.subselectors.class]
-                search_text = "body"
-            [selectors.function.subselectors.statement]
-                search_text = "body"
-            [selectors.function.subselectors.parameter]
-                search_text = "parameters"
-            [selectors.function.subselectors.for_loop]
-                search_text = "body"
-            [selectors.function.subselectors.while_loop]
-                search_text = "body"
-            [selectors.function.subselectors.if_condition]
-                search_text = "body"
+        [selectors.function.subselectors.function]
+            search_texts = ["body"]
+        [selectors.function.subselectors.class]
+            search_texts = ["body"]
+        [selectors.function.subselectors.statement]
+            search_texts = ["body"]
+        [selectors.function.subselectors.parameter]
+            search_texts = ["parameters"]
+        [selectors.function.subselectors.for_loop]
+            search_texts = ["body"]
+        [selectors.function.subselectors.while_loop]
+            search_texts = ["body"]
+        [selectors.function.subselectors.if_condition]
+            search_texts = ["body"]
     [selectors.parameter]
         model_element = "variable"
         description = "Selects information pertaining to parameters"
@@ -197,11 +195,10 @@
             regex_format_string = "for_loop"
             loop = 1
             body = 2
-        [selectors.for_loop.subselectors]
-            [selectors.for_loop.subselectors.for_loop]
-                search_text = "body"
-            [selectors.for_loop.subselectors.statement]
-                search_text = "body"
+        [selectors.for_loop.subselectors.for_loop]
+            search_texts = ["body"]
+        [selectors.for_loop.subselectors.statement]
+            search_texts = ["body"]
     [selectors.while_loop]
         model_element = "while_loop"
         description = "selects while loops"
@@ -211,13 +208,12 @@
             loop = 1
             body = 3
             condition = 2
-        [selectors.while_loop.subselectors]
-            [selectors.while_loop.subselectors.for_loop]
-                search_text = "body"
-            [selectors.while_loop.subselectors.while_loop]
-                search_text = "body"
-            [selectors.while_loop.subselectors.statement]
-                search_text = "body"
+        [selectors.while_loop.subselectors.for_loop]
+            search_texts = ["body"]
+        [selectors.while_loop.subselectors.while_loop]
+            search_texts = ["body"]
+        [selectors.while_loop.subselectors.statement]
+            search_texts = ["body"]
 
     [selectors.if_condition]
         model_element = "if_condition"
@@ -232,6 +228,8 @@
             condition = 2
             true_block = 3
             false_block = 6
+        [selectors.if_condition.subselectors.statement]
+            search_texts = ["true_block", "false_block"]
     [selectors.statement]
         model_element = "statement"
         description = "selects statements from a string without whitespace prefix"
@@ -258,7 +256,7 @@
             provides = 2
         [selectors.dependency.subselectors]
             [selectors.dependency.subselectors.provided_dependencies]
-                search_text = "provides"
+                search_texts = ["provides"]
     [selectors.provided_dependencies]
         model_element = "basic_string"
         description = "gets the provided entities from an import"
