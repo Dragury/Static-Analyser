@@ -23,7 +23,7 @@ def translate_cmd(file: list, jobs: int, source_paths: list, force, lazy, output
     """Translate files and directory contents ready for static analysis"""
     options: dict = {
         "jobs": jobs,
-        "source_paths": source_paths,
+        "source_paths": list(source_paths),
         "force": force,
         "lazy": lazy,
         "output_dir": output_dir
