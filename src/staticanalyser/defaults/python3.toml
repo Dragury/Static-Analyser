@@ -4,7 +4,7 @@
     [snippets.name]
         regex = "[a-zA-Z_][-a-zA-Z0-9_]+"
     [snippets.string]
-        regex = "\\\"[^\\\"\\n]\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]'|'''[.\\n]*'''"
+        regex = "\\\"[^\\\"\\n]*\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]*'|'''[.\\n]*'''"
     [snippets.number]
         regex = "0x[0-9ABCDEF]+|-?[0-9]+\\.[0-9]+|-?\\.[0-9]+|-?[0-9]+"
     [snippets.boolean]
@@ -47,8 +47,14 @@
     [format_strings.decorator_call]
         regex = "{{function}}\\1(\\4)\\s*=\\s*({{name}})\\(\\s*((,?{{name}})+)\\s*,\\s*\\)"
         dependencies = ["function"]
-    [format_strings.parameter]
+    [format_strings.parameter_def]
         regex = "(({{name}})\\s*(:\\s*({{name}}))?(\\s*=\\s*({{name}}|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
+    [format_strings.parameter_call]
+        regex = "((({{name}}|{{value}})\\s*,?)+)"
+        dependencies = ["value"]
+    [format_strings.function_call]
+        regex = "({{name}})\\s*\\(\\s*({{parameter_call}})?\\)"
+        dependencies = ["parameter_call"]
     [format_strings.class]
         regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{block_body}})"
         dependencies = ["block_body"]
@@ -68,6 +74,12 @@
     [format_strings.for_loop]
         regex = "(\\s*)(for .*:)\\n({{block_body}})"
         dependencies = ["block_body"]
+    [format_strings.mathematical_operation]
+        regex = "({{value}}|{{name}})\\s*(+|-|\\*|/)(.*)"
+        dependencies = ["value", "name"]
+    [format_strings.chained_function_call]
+        regex = "(({{function_call}}\\.)+)?({{function_call}})"
+        dependencies = ["function_call"]
     [format_strings.while_loop]
         regex = "(\\s*)(while (.*):)\\n({{block_body}})"
         dependencies = ["block_body"]
@@ -174,10 +186,17 @@
         description = "Selects information pertaining to parameters"
         top_level_selector = false
         [[selectors.parameter.variations]]
-            regex_format_string = "parameter"
+            regex_format_string = "parameter_def"
             name = 1
             type = 3
             initial_value = 5
+    [selectors.parameter_call]
+        model_element = "variable"
+        description = "selects parameters passed into a function call"
+        top_level_selector = false
+        [[selectors.parameter_call.variations]]
+            regex_format_string = "parameter_call"
+            initial_value = 2
     [selectors.attribute]
         model_element = "variable"
         description = "selects attributes under classes"
@@ -214,7 +233,8 @@
             search_texts = ["body"]
         [selectors.while_loop.subselectors.statement]
             search_texts = ["body"]
-
+        [selectors.while_loop.subselectors.if_condition]
+            search_texts = ["body"]
     [selectors.if_condition]
         model_element = "if_condition"
         description = "selects condition blocks"
@@ -230,6 +250,10 @@
             false_block = 6
         [selectors.if_condition.subselectors.statement]
             search_texts = ["true_block", "false_block"]
+        [selectors.if_condition.subselectors.if_condition]
+            search_texts = ["true_block", "false_block"]
+        [selectors.if_condition.subselectors.while_loop]
+            search_texts = ["true_block", "false_block"]
     [selectors.statement]
         model_element = "statement"
         description = "selects statements from a string without whitespace prefix"
@@ -238,10 +262,37 @@
             regex_format_string = "bare_statement"
             lhs = 3
             rhs = 4
+        [selectors.statement.subselectors.operation]
+            search_texts = ["rhs"]
+        [selectors.statement.subselectors.reference]
+            search_texts = ["rhs"]
+
     [selectors.operation]
         model_element = false
         description = "breaks apart operations"
         top_level_selector = false
+        [[selectors.operation.variations]]
+            regex_format_string = "mathematical_operation"
+            lhs = 1
+            sign = 2
+            rhs = 3
+        [selectors.operation.subselectors.operation]
+            search_texts = ["rhs"]
+        [selectors.operation.subselectors.reference]
+            search_texts = ["rhs", "lhs"]
+    [selectors.reference]
+        model_element = "reference"
+        description = "captures references to functions and classes"
+        top_level_selector = false
+        [[selectors.reference.variations]]
+            regex_format_string = "chained_function_call"
+            target = 2
+            call = 11
+            parameters = 12
+        [selectors.reference.subselectors.parameter_call]
+            search_texts = ["parameters"]
+        [selectors.reference.subselectors.reference]
+            search_texts = ["target"]
     [selectors.dependency]
         model_element = "dependency"
         description = "selects import statements"

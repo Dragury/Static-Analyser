@@ -4,14 +4,8 @@ import json
 from hashlib import md5
 from staticanalyser.shared.platform_constants import SCHEMA_LOCATION
 
-SCHEMA: dict = None
 with open(SCHEMA_LOCATION, "r") as s:
-    SCHEMA = json.load(s)
-
-
-class ReferenceModel(str):
-    def lookup(self) -> bool:
-        pass
+    SCHEMA:dict  = json.load(s)
 
 
 class ModelGeneric(object):
@@ -26,6 +20,34 @@ class ModelGeneric(object):
 
     def add_subselection(self, sub_selection: dict):
         pass
+
+
+class ReferenceModel(ModelGeneric):
+    _ref: str = None
+    _target: str = None
+    _parameters: list = None
+
+    def __init__(self, language: str, prefix: str, data: dict):
+        self._ref = data.get("call")
+        self._target = data.get("target")
+        self._parameters = data.get("parameters")
+
+    def lookup(self) -> bool:
+        pass
+
+    def flatten(self) -> dict:
+        parms = self._parameters
+        if not type(parms) == str:
+            parms = [p.flatten() for p in parms]
+        return {
+            "ref": self._ref,
+            "target": self._target,
+            "parameters": parms
+        }
+
+    def add_subselection(self, sub_selection: dict):
+        if sub_selection.get("parameter"):
+            self._parameters = sub_selection.get("parameter")
 
 
 class ControlFlowGeneric(ModelGeneric):
@@ -113,24 +135,36 @@ class OperatorModel(ModelGeneric):
         self._rhs = data.get("rhs")
 
     def add_subselection(self, sub_selection: dict):
-        self._lhs = OperatorModel(None, None, sub_selection.get())
+        if sub_selection.get("reference"):
+            self._rhs = sub_selection.get("reference")
+        if sub_selection.get("operation"):
+            self._rhs = OperatorModel("", "", sub_selection.get("operation")[0])
 
     def flatten(self) -> dict:
         pass
 
 
 class StatementModel(ModelGeneric):
-    _lhs: ReferenceModel = None
+    _lhs: str = None
     _rhs: OperatorModel = None
 
     def __init__(self, language: str, prefix: str, data: dict):
         self._lhs = data.get("lhs")
         self._rhs = data.get("rhs")
 
+    def add_subselection(self, sub_selection: dict):
+        if sub_selection.get("reference"):
+            self._rhs = sub_selection.get("reference")[0]
+        if sub_selection.get("operation"):
+            self._rhs = sub_selection.get("operation")[0]
+
     def flatten(self) -> dict:
+        rhs = self._rhs
+        if not type(rhs) == str:
+            rhs = rhs.flatten()
         return {
             "lhs": self._lhs,
-            "rhs": self._rhs  # TODO .flatten()
+            "rhs": rhs
         }
 
 

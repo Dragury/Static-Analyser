@@ -106,34 +106,38 @@ class Selector(object):
         for v in self._variations:
             r: RegexBuilder = RegexBuilderFactory.get_builder(self._lang)
             regex: str = r.build(v.get("regex_format_string"))
-            # if self._name == "function":
-            #     print(r.build(v.get("regex_format_string")))
-            artefacts: list = re.findall(regex, file_contents, flags=re.M)
-            for artefact in artefacts:
-                artefact_info: dict = {}
-                for k in v.keys():
-                    if k != "regex_format_string":
-                        artefact_info[k] = artefact[v[k]]
-                a: model.ModelGeneric
-                if self._model_type is not None:
-                    a = self._model_type(self._lang, prefix, artefact_info)
+            print(self._name)
+            try:
+                artefacts: list = re.findall(regex, file_contents, flags=re.M)
+                print(artefacts)
+                print(regex)
+                for artefact in artefacts:
+                    artefact_info: dict = {}
+                    for k in v.keys():
+                        if k != "regex_format_string":
+                            artefact_info[k] = artefact[v[k]]
+                    a: model.ModelGeneric
+                    if self._model_type is not None:
+                        a = self._model_type(self._lang, prefix, artefact_info)
 
-                    sub_selection: dict = {}
-                    for selector in self._subselectors.keys():
-                        s: Selector = Selector.get_selector_by_name("{}.{}".format(self._lang, selector))
-                        if s is not None:
-                            for st in self._subselectors[selector]["search_texts"]:
-                                _res = s.select(
-                                    artefact_info.get(st),
-                                    prefix
-                                )
-                                if not sub_selection.get(selector):
-                                    sub_selection[selector] = _res
-                                else:
-                                    sub_selection[selector] += _res
+                        sub_selection: dict = {}
+                        for selector in self._subselectors.keys():
+                            s: Selector = Selector.get_selector_by_name("{}.{}".format(self._lang, selector))
+                            if s is not None:
+                                for st in self._subselectors[selector]["search_texts"]:
+                                    _res = s.select(
+                                        artefact_info.get(st),
+                                        prefix
+                                    )
+                                    if not sub_selection.get(selector):
+                                        sub_selection[selector] = _res
+                                    else:
+                                        sub_selection[selector] += _res
 
-                    a.add_subselection(sub_selection)
-                    res.append(a)
+                        a.add_subselection(sub_selection)
+                        res.append(a)
+            except re.error:
+                print("regex error")
         return res
 
     def get_is_top_level_selector(self) -> bool:
@@ -157,6 +161,7 @@ class SelectorType(Enum):
     sa_dependency = "dependency"
     sa_basic_string = "basic_string"
     sa_operation = "operation"
+    sa_reference = "reference"
     _class_map: dict = {
         sa_function: model.FunctionModel,
         sa_class: model.ClassModel,
@@ -167,7 +172,8 @@ class SelectorType(Enum):
         sa_dependency: model.DependencyModel,
         sa_if_condition: model.ConditionModel,
         sa_basic_string: model.BasicString,
-        sa_operation: model.OperatorModel
+        sa_operation: model.OperatorModel,
+        sa_reference: model.ReferenceModel
     }
 
     @staticmethod
