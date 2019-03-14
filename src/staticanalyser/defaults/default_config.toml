@@ -1,6 +1,0 @@
-[languages]
-    [languages.python3]
-        global_identifier_prefix="python3"
-[filetypes]
-    [filetypes.py]
-        languages=["python3"]
