@@ -1,12 +1,11 @@
 from pathlib import Path
-import _queue
+import queue
 import staticanalyser.shared.config as config
 import staticanalyser.translator.descriptor as descriptor
 from staticanalyser.shared.platform_constants import MODEL_DIR
-from os import path, getcwd, environ, name
+from os import path, getcwd, name
 import multiprocessing as mp
 import re
-import sys
 
 
 def lookup_parser(extension: str) -> list:
@@ -26,7 +25,7 @@ def parse(file_queue: mp.Queue, local_dir, source_paths, force):
                 selected_parser = descriptor.Descriptor(parser_options[0])
                 selected_parser.parse(file, get_file_extension(file), local_dir, source_paths, force)
             file = file_queue.get_nowait()
-    except _queue.Empty:
+    except queue.Empty:
         pass
 
 
