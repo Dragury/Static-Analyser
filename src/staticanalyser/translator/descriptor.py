@@ -3,6 +3,8 @@ from hashlib import md5
 from enum import Enum
 from os import path
 from pathlib import Path
+
+import sys
 from jsonschema import validate
 
 import toml
@@ -108,9 +110,11 @@ class Selector(object):
             regex: str = r.build(v.get("regex_format_string"))
             print(self._name)
             try:
+                # print(regex)
+                # print(file_contents)
                 artefacts: list = re.findall(regex, file_contents, flags=re.M)
-                print(artefacts)
-                print(regex)
+                # print(artefacts)
+                # print(regex)
                 for artefact in artefacts:
                     artefact_info: dict = {}
                     for k in v.keys():
@@ -125,19 +129,21 @@ class Selector(object):
                             s: Selector = Selector.get_selector_by_name("{}.{}".format(self._lang, selector))
                             if s is not None:
                                 for st in self._subselectors[selector]["search_texts"]:
-                                    _res = s.select(
-                                        artefact_info.get(st),
-                                        prefix
-                                    )
-                                    if not sub_selection.get(selector):
-                                        sub_selection[selector] = _res
-                                    else:
-                                        sub_selection[selector] += _res
+                                    if artefact_info.get(st):
+                                        _res = s.select(
+                                            artefact_info.get(st),
+                                            prefix
+                                        )
+                                        if not sub_selection.get(selector):
+                                            sub_selection[selector] = _res
+                                        else:
+                                            sub_selection[selector] += _res
 
                         a.add_subselection(sub_selection)
                         res.append(a)
             except re.error:
-                print("regex error")
+                print(self._name, file=sys.stderr)
+                print("regex error", file=sys.stderr)
         return res
 
     def get_is_top_level_selector(self) -> bool:
@@ -331,7 +337,7 @@ class Descriptor(object):
                 # TODO resolve references, cull duplicates
                 klazz: model.ClassModel
                 for klazz in selected_entities.get("classes") or []:
-                    print(klazz)
+                    # print(klazz)
                     func: model.FunctionModel
                     for func in klazz.get_functions():
                         function_hash = func.get_hash()

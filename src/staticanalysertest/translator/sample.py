@@ -40,10 +40,14 @@ def my_method_2(test=4, yes: str = "yes!") -> None:
 
 def my_method_3() -> None:
     test = 1
+    if test == 1:
+        print("test is 1!")
     for i in (1, 2, 3):
         for j in (1, 2, 3):
             print("hello!")
             print("goodbye!!")
+    while True:
+        print(test)
 
 
 if __name__ == "__main__":

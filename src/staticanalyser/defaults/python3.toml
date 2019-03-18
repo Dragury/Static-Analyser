@@ -75,7 +75,7 @@
         regex = "(\\s*)(for .*:)\\n({{block_body}})"
         dependencies = ["block_body"]
     [format_strings.mathematical_operation]
-        regex = "({{value}}|{{name}})\\s*(+|-|\\*|/)(.*)"
+        regex = "(({{value}}|{{name}})\\s*(+|-|\\*|/)(.*))"
         dependencies = ["value", "name"]
     [format_strings.chained_function_call]
         regex = "(({{function_call}}\\.)+)?({{function_call}})"
@@ -262,6 +262,7 @@
             regex_format_string = "bare_statement"
             lhs = 3
             rhs = 4
+            body = 2
         [selectors.statement.subselectors.operation]
             search_texts = ["rhs"]
         [selectors.statement.subselectors.reference]
@@ -273,9 +274,10 @@
         top_level_selector = false
         [[selectors.operation.variations]]
             regex_format_string = "mathematical_operation"
-            lhs = 1
-            sign = 2
-            rhs = 3
+            lhs = 2
+            sign = 3
+            rhs = 4
+            body = 1
         [selectors.operation.subselectors.operation]
             search_texts = ["rhs"]
         [selectors.operation.subselectors.reference]
