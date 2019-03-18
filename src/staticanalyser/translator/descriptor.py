@@ -334,7 +334,7 @@ class Descriptor(object):
                 selected_entities: dict = self.select(file_contents, prefix)
 
                 # print(selected_entities)
-                # TODO resolve references, cull duplicates
+                # TODO resolve references
                 klazz: model.ClassModel
                 for klazz in selected_entities.get("classes") or []:
                     # print(klazz)
@@ -345,6 +345,7 @@ class Descriptor(object):
                         for tlfunc in selected_entities.get("functions") or []:
                             if tlfunc.get_hash() == function_hash:
                                 selected_entities.get("functions").remove(tlfunc)
+
 
                 self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
                 print("Translation done for {}".format(file))
