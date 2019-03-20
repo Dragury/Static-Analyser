@@ -119,6 +119,7 @@ class Selector(object):
             logging.debug("selector {} regex: {}".format(self._name, regex))
             try:
                 artefacts: list = re.findall(regex, file_contents, flags=re.M)
+                logging.debug("selector {} found {} results".format(self._name, len(artefacts)))
                 for artefact in artefacts:
                     artefact_info: dict = {}
                     for k in v.keys():
@@ -139,9 +140,14 @@ class Selector(object):
                                             "{}.{}".format(prefix, a.get_name()) if issubclass(type(a), model.NamedModelGeneric) else prefix
                                         )
                                         if not sub_selection.get(selector):
-                                            sub_selection[selector] = _res
+                                            sub_selection[selector] = {
+                                                st: _res
+                                            } if len(self._subselectors[selector]["search_texts"]) > 1 else _res
                                         else:
-                                            sub_selection[selector] += _res
+                                            if len(self._subselectors[selector]["search_texts"]) > 1:
+                                                sub_selection[selector][st] = _res
+                                            else:
+                                                sub_selection[selector] += _res
 
                         a.add_subselection(sub_selection)
                         res.append(a)
@@ -431,6 +437,7 @@ class Descriptor(object):
             if model_expired:
                 print("Translating {}".format(file))
                 file_contents = self.preprocess(file_contents)
+                print(file_contents)
                 logging.debug("Preprocessing done.")
                 prefix: str = self._get_base_prefix(file, file_extension, source_paths)
                 selected_entities: dict = self.select(file_contents, prefix)

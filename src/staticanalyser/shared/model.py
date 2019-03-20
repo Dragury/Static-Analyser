@@ -13,10 +13,14 @@ with open(SCHEMA_LOCATION, "r") as s:
 class ModelOperations(object):
     @staticmethod
     def prune_body(body: list, body_entities: list) -> list:
+        logging.debug("Attempting to prune {}".format(body))
+        logging.debug("Checking for {}".format(body_entities))
         res: list = copy.copy(body)
         try:
             for entity in body_entities:
                 for index, line in enumerate(res):
+                    logging.debug("Comparing {} to {}".format(line, entity))
+                    # TODO change from first come first served
                     if type(line) is StatementModel and entity.get_as_strings()[0] == line.get_rhs():
                         for i in range(len(entity.get_as_strings()) - 1):
                             res.pop(index + 1)
@@ -316,6 +320,8 @@ class WhileLoop(ControlFlowGeneric):
 
 class ConditionModel(ControlFlowGeneric):
     _condition: OperatorModel = None
+    _true_condition: str = None
+
 
     def __init__(self, language: str, prefix: str, data: dict):
         self._condition = data.get("condition")
@@ -329,8 +335,25 @@ class ConditionModel(ControlFlowGeneric):
         return {
             "model_type": "condition",
             "condition": self._condition,
-            "blocks": self._control_flow
+            "blocks": {
+                "true_block": [s.flatten() for s in self._control_flow.get("true_block")],
+                "false_block": [s.flatten() for s in self._control_flow.get("false_block")] if self._control_flow.get("false_block") else []
+            }
         }
+
+    def add_subselection(self, sub_selection: dict):
+        self._control_flow["true_block"] = ModelOperations.prune_body(
+            sub_selection.get("statement").get("true_block"),
+            sub_selection.get("if_condition").get("true_block") if sub_selection.get("if_condition") and sub_selection.get("if_condition").get("true_block") else [] +
+            sub_selection.get("for_loop").get("true_block") if sub_selection.get("for_loop") and sub_selection.get("for_loop").get("true_block") else [] +
+            sub_selection.get("while_loop").get("true_block") if sub_selection.get("while_loop") and sub_selection.get("while_loop").get("true_block") else []
+        )
+        self._control_flow["false_block"] = ModelOperations.prune_body(
+            sub_selection.get("statement").get("false_block"),
+            sub_selection.get("if_condition").get("false_block") if sub_selection.get("if_condition") and sub_selection.get("if_condition").get("false_block") else [] +
+            sub_selection.get("for_loop").get("false_block") if sub_selection.get("for_loop") and sub_selection.get("for_loop").get("false_block") else [] +
+            sub_selection.get("while_loop").get("false_block") if sub_selection.get("while_loop") and sub_selection.get("while_loop").get("false_block") else []
+        ) if sub_selection.get("statement").get("false_block") else []
 
     def get_as_strings(self) -> list:
         res: list = ["if {}:".format(self._condition)]  # .get_string()
@@ -341,8 +364,8 @@ class ConditionModel(ControlFlowGeneric):
         return res
 
     def get_as_statements(self) -> list:
-        res: list = self._control_flow["true"]
-        res += self._control_flow.get("false") or []
+        res: list = self._control_flow.get("true_block")
+        res += self._control_flow.get("false_block") or []
         return res
 
 
@@ -364,8 +387,8 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
             sub_selection.get("statement") or [],
             [
                 *(sub_selection.get("for_loop") or []),
-                *(sub_selection.get("while") or []),
-                *(sub_selection.get("if") or []),
+                *(sub_selection.get("while_loop") or []),
+                *(sub_selection.get("if_condition") or []),
                 *(sub_selection.get("function") or [])
             ]
         )

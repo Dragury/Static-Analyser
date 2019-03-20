@@ -14,9 +14,9 @@
     [snippets.empty_line]
         regex = "\\n\\s*\\n"
     [snippets.statement]
-        regex = "(\\1\\s{4}.*\\n)"
+        regex = "(\\1(\\s{4}|\\t).*\\n)"
     [snippets.statement_no_newline]
-        regex = "(\\1\\s{4}.*)"
+        regex = "(\\1(\\s{4}|\\t).*)"
     [snippets.entrypoint]
         regex = "if\\s+__name__\\s*==\\s*\\\"__main__\\\"\\s*:"
 
