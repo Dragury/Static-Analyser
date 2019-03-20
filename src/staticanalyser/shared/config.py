@@ -7,7 +7,8 @@ from staticanalyser.shared.platform_constants import LANGS_DIR
 _CONFIG_ITEMS = {
     "languages": [],
     "filetypes": {},
-    "source_dirs": {}
+    "source_dirs": {},
+    "builtins": {}
 }
 __all__ = ['get_languages', 'get_languages_by_extension', 'get_filetypes', 'get_file_extensions']
 
@@ -24,6 +25,7 @@ for file in langs_dir.iterdir():
                 else:
                     _CONFIG_ITEMS.get("filetypes").get(extension).append(lang_info.get("name"))
             _CONFIG_ITEMS.get("source_dirs")[lang_info.get("name")] = lang_info.get("global_sources")
+            _CONFIG_ITEMS.get("builtins")[lang_info.get("name")] = lang_info.get("builtins")
 
 
 # CONFIG SUBFUNCTIONS
@@ -69,4 +71,12 @@ def get_source_dirs() -> dict:
 
 
 def get_language_source_dirs(lang: str) -> dict:
-    return get_source_dirs().get(lang) or []
+    return get_source_dirs().get(lang) or {}
+
+
+def get_builtins() -> dict:
+    return _get_config_item()
+
+
+def get_language_builtins(lang: str) -> dict:
+    return get_builtins().get(lang) or {}

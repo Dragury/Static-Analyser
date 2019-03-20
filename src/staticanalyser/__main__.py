@@ -2,6 +2,13 @@
 import click
 from staticanalyser.translator.translate import translate
 import sys
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename="sa_out.log",
+    format='%(asctime)s - %(name)s - %(processName)s -  %(levelname)s - %(message)s'
+)
 
 
 # The 'main' method for the static analyser, runs with a gui or cli

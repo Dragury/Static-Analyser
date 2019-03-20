@@ -6,6 +6,7 @@ from staticanalyser.shared.platform_constants import MODEL_DIR
 from os import path, getcwd, name
 import multiprocessing as mp
 import re
+import logging
 
 
 def lookup_parser(extension: str) -> list:
@@ -20,13 +21,14 @@ def parse(file_queue: mp.Queue, local_dir, source_paths, force):
     try:
         file = file_queue.get_nowait()
         while file is not None:
+            logging.info("Selected {} for translation".format(file))
             parser_options = lookup_parser(get_file_extension(file))
-            if parser_options[0] is not None:
-                selected_parser = descriptor.Descriptor(parser_options[0])
+            if parser_options[0] is not None:  # TODO potentially try many parsers and use next if errors with first?
+                selected_parser = descriptor.Descriptor.get_descriptor(parser_options[0])
                 selected_parser.parse(file, get_file_extension(file), local_dir, source_paths, force)
             file = file_queue.get_nowait()
     except queue.Empty:
-        pass
+        logging.info("No files remaining for translation")
 
 
 def get_files(src: path) -> list:
@@ -49,24 +51,30 @@ def spawn_processes(pid_count: int, input_files: mp.Queue, output_dir: path, sou
 
 def translate(input_files: list, options: dict = None) -> int:
     if not options:
+        logging.info("No options supplied")
         options = {}
 
     local_dir_name: str = options.get("output_dir")
     local_dir: path = path.join(getcwd(), ".model")
     if local_dir_name:
+        logging.info("Using supplied output directory")
         local_dir = path.abspath(local_dir_name)
 
     if not path.exists(local_dir):
+        logging.info("Creating the .model directory")
         Path(local_dir).mkdir(parents=True, exist_ok=True)
 
     number_of_processes = options.get("jobs") or 1
+    logging.info("Process will run {} threads".format(number_of_processes))
 
     source_paths: list = options.get("source_paths") or []
     if getcwd() not in source_paths:
         source_paths.append(getcwd())
 
     force: bool = options.get("force") is True or False
+    logging.info("force mode is {}".format(force))
     lazy: bool = options.get("lazy") is True or False
+    logging.info("lazy mode is {}".format(lazy))
 
     # TODO create file list to iterate through
     mp.set_start_method('spawn')
@@ -104,17 +112,4 @@ def translate(input_files: list, options: dict = None) -> int:
 
     for process in spawn_processes(number_of_processes, file_queue, local_dir, source_paths, force):
         process.join()
-
-    # TODO load descriptors
-    # for f in file_list:
-    #     parser_options = lookup_parser(get_file_extension(f))
-    #     if parser_options[0] is not None:
-    #         selected_parser = descriptor.Descriptor(parser_options[0])
-    #         selected_parser.parse(f, get_file_extension(f), local_dir, source_paths)
-    #         # print("Using {} to translate {}".format(selected_parser, f.name)) # TODO switch to python logger
-    #     else:
-    #         # print("No parser found for {}".format(f.name))
-    #         pass
-
-    # TODO check current model
     return 0

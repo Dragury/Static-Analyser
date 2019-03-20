@@ -4,6 +4,7 @@ from enum import Enum
 import json
 from hashlib import md5
 from staticanalyser.shared.platform_constants import SCHEMA_LOCATION
+import logging
 
 with open(SCHEMA_LOCATION, "r") as s:
     SCHEMA: dict = json.load(s)
@@ -17,8 +18,8 @@ class ModelOperations(object):
             for entity in body_entities:
                 for index, line in enumerate(res):
                     if type(line) is StatementModel and entity.get_as_strings()[0] == line.get_rhs():
-                        for i in range(len(entity.get_as_strings())-1):
-                            res.pop(index+1)
+                        for i in range(len(entity.get_as_strings()) - 1):
+                            res.pop(index + 1)
                         res[index] = entity
             return res
         except NotImplementedError:
@@ -46,8 +47,8 @@ class ReferenceModel(ModelGeneric):
 
     def __init__(self, language: str, prefix: str, data: dict):
         self._ref = data.get("call")
-        self._target = data.get("target")
-        self._parameters = data.get("parameters")
+        self._target = data.get("target") or ""
+        self._parameters = data.get("parameters") or ""
 
     def lookup(self) -> bool:
         pass
@@ -63,6 +64,18 @@ class ReferenceModel(ModelGeneric):
             "parameters": parms
         }
 
+    def get_ref(self):
+        return self._ref
+
+    def set_ref(self, new_ref: str):
+        self._ref = new_ref
+
+    def get_target(self):
+        return self._target
+
+    def get_parameters(self):
+        return self._parameters
+
     def add_subselection(self, sub_selection: dict):
         if sub_selection.get("parameter"):
             self._parameters = sub_selection.get("parameter")
@@ -75,7 +88,8 @@ class ControlFlowGeneric(ModelGeneric):
         res: dict = {}
         for k in self._control_flow.keys():
             if k in targets:
-                res[k] = [l.flatten() for l in self._control_flow[k]]
+                logging.debug("trying to flatten {}".format(k))
+                res[k] = [l.flatten() if type(l) is not dict else l for l in self._control_flow[k]]
             else:
                 res[k] = self._control_flow[k]
         return res
@@ -83,9 +97,13 @@ class ControlFlowGeneric(ModelGeneric):
     def get_as_statements(self) -> list:
         raise NotImplementedError()
 
+    def get_as_strings(self):
+        raise NotImplementedError()
+
 
 class NamedModelGeneric(ModelGeneric):
     _global_identifier: ReferenceModel = None
+    _prefix: str = None
     _name: str = None
     _hash: str = None
     _lang: str = None
@@ -93,6 +111,7 @@ class NamedModelGeneric(ModelGeneric):
 
     def __init__(self, language: str, prefix: str, data: dict):
         self._name = data.get("name")
+        self._prefix = prefix
         self._global_identifier = "{}.{}".format(prefix, self._name)
         self._body = data.get("body")
         self._hash = md5(self._body.encode("utf-8")).hexdigest()
@@ -103,6 +122,12 @@ class NamedModelGeneric(ModelGeneric):
 
     def get_hash(self):
         return self._hash
+
+    def append_to_prefix(self, name: str):
+        self._prefix = "{}.{}".format(self._prefix, name)
+
+    def get_name(self):
+        return self._name
 
 
 class ClassModel(NamedModelGeneric):
@@ -123,6 +148,9 @@ class ClassModel(NamedModelGeneric):
 
     def get_functions(self) -> list:
         return self._functions
+
+    def set_functions(self, new_functions: list) -> None:
+        self._functions = new_functions
 
     def flatten(self) -> dict:
         flattened_functions: list = [f.flatten() for f in self._functions]
@@ -242,6 +270,9 @@ class ForLoopModel(ControlFlowGeneric):
         res += [l.strip() for l in self._body.split("\n")]
         return res
 
+    def get_as_statements(self) -> list:
+        return self._body_parsed
+
 
 class WhileLoop(ControlFlowGeneric):
     _loop: str = None
@@ -279,6 +310,9 @@ class WhileLoop(ControlFlowGeneric):
         res += [l.strip() for l in self._body.split("\n")]
         return res
 
+    def get_as_statements(self) -> list:
+        return self._body_parsed
+
 
 class ConditionModel(ControlFlowGeneric):
     _condition: OperatorModel = None
@@ -299,11 +333,16 @@ class ConditionModel(ControlFlowGeneric):
         }
 
     def get_as_strings(self) -> list:
-        res: list = ["if {}:".format(self._condition)] # .get_string()
+        res: list = ["if {}:".format(self._condition)]  # .get_string()
         res += [l.strip() for l in self._control_flow["true"].split("\n")]
         if self._control_flow["false"] is not "":
             res.append("else:")
             res += [l.strip() for l in self._control_flow["false"].split("\n")]
+        return res
+
+    def get_as_statements(self) -> list:
+        res: list = self._control_flow["true"]
+        res += self._control_flow.get("false") or []
         return res
 
 
@@ -311,26 +350,28 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
     _parameters: list = None
     _statements: list = None
     _control_flow: dict = None
+    _declaration: str = None
 
     def __init__(self, language: str, prefix: str, data: dict):
         super(FunctionModel, self).__init__(language, prefix, data)
         self._parameters = data.get("parameters")
         self._control_flow = {}
+        self._declaration = data.get("declaration")
 
     def add_subselection(self, sub_selection: dict):
         self._parameters = sub_selection.get("parameter") or []
-        print(sub_selection.get("statement"))
-        self._statements = sub_selection.get("statement") or []
-        self._control_flow["while"] = sub_selection.get("while_loop") or []
-        self._control_flow["if"] = sub_selection.get("if_condition") or []
         self._statements = ModelOperations.prune_body(
-            self._statements,
+            sub_selection.get("statement") or [],
             [
                 *(sub_selection.get("for_loop") or []),
-                *(self._control_flow["while"] or []),
-                *(self._control_flow["if"] or [])
+                *(sub_selection.get("while") or []),
+                *(sub_selection.get("if") or []),
+                *(sub_selection.get("function") or [])
             ]
         )
+
+    def get_as_statements(self) -> list:
+        return self._statements
 
     def flatten(self):
         self._control_flow = self.flatten_dict("while", "if")
@@ -344,6 +385,11 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
             "body_parsed": [s.flatten() for s in self._statements],
             "control_flow": self._control_flow
         }
+
+    def get_as_strings(self) -> list:
+        res: list = [self._declaration]
+        res += [l.strip() for l in self._body.split('\n')]
+        return res
 
 
 class VariableModel(ModelGeneric):
@@ -384,6 +430,9 @@ class DependencyModel(ModelGeneric):
             "source": self._source,
             "provides": [p.flatten() for p in self._provides if type(p) != str]
         }
+
+    def get_provided_imports(self):
+        return self._provides
 
 
 class BasicString(ModelGeneric):
