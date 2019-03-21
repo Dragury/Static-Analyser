@@ -5,7 +5,7 @@ import sys
 import logging
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     filename="sa_out.log",
     format='%(asctime)s - %(name)s - %(processName)s -  %(levelname)s - %(message)s'
 )

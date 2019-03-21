@@ -21,6 +21,7 @@ import json
 import logging
 import staticanalyser.shared.config
 
+
 class RegexBuilderFactory(object):
     _builders: dict = {}
 
@@ -96,7 +97,7 @@ class Selector(object):
         return Selector._registered_selectors.get(name)
 
     def __init__(self, language: str, name: str, data: dict):
-        self._model_type = SelectorType.get_model_class(data.get("model_element"))
+        self._model_type = model.ModelMap.get_model_class(data.get("model_element"))
         self._name = name
         self._lang = language
         self._description = data.get("description")
@@ -125,7 +126,10 @@ class Selector(object):
                     for k in v.keys():
                         if k != "regex_format_string":
                             artefact_info[k] = artefact[v[k]]
-                    a: model.ModelGeneric
+                    a: Union[
+                        model.ModelGeneric,
+                        model.NamedModelGeneric
+                    ]
                     if self._model_type is not None:
                         a = self._model_type(self._lang, prefix, artefact_info)
 
@@ -137,7 +141,8 @@ class Selector(object):
                                     if artefact_info.get(st):
                                         _res = s.select(
                                             artefact_info.get(st),
-                                            "{}.{}".format(prefix, a.get_name()) if issubclass(type(a), model.NamedModelGeneric) else prefix
+                                            "{}.{}".format(prefix, a.get_name()) if issubclass(type(a),
+                                                                                               model.NamedModelGeneric) else prefix
                                         )
                                         if not sub_selection.get(selector):
                                             sub_selection[selector] = {
@@ -163,37 +168,6 @@ class Selector(object):
 
     def get_qualified_name(self) -> str:
         return "{}.{}".format(self._lang, self._name)
-
-
-class SelectorType(Enum):
-    sa_function = "function"
-    sa_class = "class"
-    sa_variable = "variable"
-    sa_statement = "statement"
-    sa_for_loop = "for_loop"
-    sa_while_loop = "while_loop"
-    sa_if_condition = "if_condition"
-    sa_dependency = "dependency"
-    sa_basic_string = "basic_string"
-    sa_operation = "operation"
-    sa_reference = "reference"
-    _class_map: dict = {
-        sa_function: model.FunctionModel,
-        sa_class: model.ClassModel,
-        sa_variable: model.VariableModel,
-        sa_statement: model.StatementModel,
-        sa_for_loop: model.ForLoopModel,
-        sa_while_loop: model.WhileLoop,
-        sa_dependency: model.DependencyModel,
-        sa_if_condition: model.ConditionModel,
-        sa_basic_string: model.BasicString,
-        sa_operation: model.OperatorModel,
-        sa_reference: model.ReferenceModel
-    }
-
-    @staticmethod
-    def get_model_class(name: str) -> type:
-        return SelectorType._class_map.value.get(name)
 
 
 class Preprocessor(object):
@@ -238,7 +212,6 @@ class Descriptor(object):
             return
         else:
             self._lang = language_name
-            # TODO loading from lang files
             language_config = None
             with open(path.join(LANGS_DIR, "{}.toml".format(language_name)), "r") as language_file:
                 language_config = toml.load(language_file)
@@ -320,21 +293,21 @@ class Descriptor(object):
     def _resolve_classes(self, namespace_stack: list, classes: list):
         klazz: model.ClassModel
         for index, klazz in enumerate(classes):
-            logging.info("resolving methods for class {} of {}".format(index+1, len(classes)))
+            logging.info("resolving methods for class {} of {}".format(index + 1, len(classes)))
             local_namespace_stack: list = copy.copy(namespace_stack)
             local_namespace_stack.append(klazz.get_functions())
             self._resolve_functions(local_namespace_stack, klazz.get_functions())
 
-
     def _resolve_functions(self, namespace_stack: list, functions: list):
         func: model.FunctionModel
         for index, func in enumerate(functions):
-            logging.info("Resolving function {} of {}: {}".format(index+1, len(functions), func.get_name() if type(func) is model.FunctionModel else "anonymous"))
+            logging.info("Resolving function {} of {}: {}".format(index + 1, len(functions), func.get_name() if type(
+                func) is model.FunctionModel else "anonymous"))
             st: Union[
                 model.StatementModel,
                 model.ReferenceModel,
                 model.ForLoopModel,
-                model.WhileLoop,
+                model.WhileLoopModel,
                 model.ConditionModel,
                 model.FunctionModel,
                 model.ClassModel
@@ -390,16 +363,18 @@ class Descriptor(object):
                                             break
 
                     if not call_found:
-                        logging.warning("No reference found to resolve {}.{}".format(func.get_global_identifier(), call))
+                        logging.warning(
+                            "No reference found to resolve {}.{}".format(func.get_global_identifier(), call))
                 else:
-                    if type(st) in [model.WhileLoop, model.ConditionModel, model.ForLoopModel, model.FunctionModel]:
+                    if type(st) in [model.WhileLoopModel, model.ConditionModel, model.ForLoopModel,
+                                    model.FunctionModel]:
                         namespace_stack.append([st.get_global_identifier() if type(st) is model.FunctionModel else ""])
                         self._resolve_functions(namespace_stack, [st])
-                        namespace_stack.pop(len(namespace_stack)-1)
+                        namespace_stack.pop(len(namespace_stack) - 1)
                     elif type(st) is model.ClassModel:
                         namespace_stack.append([st.get_global_identifier()])
                         self._resolve_classes(namespace_stack, [st])
-                        namespace_stack.pop(len(namespace_stack)-1)
+                        namespace_stack.pop(len(namespace_stack) - 1)
                     logging.debug("Skipping statement")
 
     def resolve_references(self, selection: dict) -> dict:
@@ -437,7 +412,6 @@ class Descriptor(object):
             if model_expired:
                 print("Translating {}".format(file))
                 file_contents = self.preprocess(file_contents)
-                print(file_contents)
                 logging.debug("Preprocessing done.")
                 prefix: str = self._get_base_prefix(file, file_extension, source_paths)
                 selected_entities: dict = self.select(file_contents, prefix)
@@ -452,7 +426,6 @@ class Descriptor(object):
                         for tlfunc in selected_entities.get("functions") or []:
                             logging.info("found duplicate for {}".format(tlfunc.get_name()))
                             if tlfunc.get_hash() == function_hash:
-
                                 selected_entities.get("functions").remove(tlfunc)
                 logging.debug("Reference deduplication done.")
 

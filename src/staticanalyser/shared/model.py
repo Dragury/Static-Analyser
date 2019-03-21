@@ -62,7 +62,7 @@ class ReferenceModel(ModelGeneric):
         if not type(parms) == str:
             parms = [p.flatten() for p in parms]
         return {
-            "model_type": "reference",
+            "model_type": ModelMap.REFERENCE.value,
             "ref": self._ref,
             "target": self._target,
             "parameters": parms
@@ -161,7 +161,7 @@ class ClassModel(NamedModelGeneric):
         flattened_subclasses: list = [c.flatten() for c in self._subclasses]
         flattened_attributes: list = [a.flatten() for a in self._attributes]
         return {
-            "model_type": "class",
+            "model_type": ModelMap.CLASS.value,
             "name": self._name,
             "global_id": self.get_global_identifier(),
             "hash": self._hash,
@@ -229,7 +229,7 @@ class StatementModel(ModelGeneric):
         if not type(rhs) == str:
             rhs = rhs.flatten()
         return {
-            "model_type": "statement",
+            "model_type": ModelMap.STATEMENT.value,
             "lhs": self._lhs,
             "rhs": rhs
         }
@@ -249,11 +249,10 @@ class ForLoopModel(ControlFlowGeneric):
     def flatten(self) -> dict:
         self._control_flow = self.flatten_dict("for", "while", "if")
         return {
-            "model_type": "for_loop",
+            "model_type": ModelMap.FOR_LOOP.value,
             "loop": self._loop,
             "body": self._body,
-            "body_parsed": [s.flatten() for s in self._body_parsed],
-            "control_flow": self._control_flow
+            "body_parsed": [s.flatten() for s in self._body_parsed]
         }
 
     def add_subselection(self, sub_selection: dict):
@@ -278,7 +277,7 @@ class ForLoopModel(ControlFlowGeneric):
         return self._body_parsed
 
 
-class WhileLoop(ControlFlowGeneric):
+class WhileLoopModel(ControlFlowGeneric):
     _loop: str = None
     _body: str = None  # first body, e.g. if true
     _body_parsed: list = None
@@ -296,18 +295,22 @@ class WhileLoop(ControlFlowGeneric):
     def flatten(self) -> dict:
         self._control_flow = self.flatten_dict("for", "while", "if")
         return {
-            "model_type": "while_loop",
+            "model_type": ModelMap.WHILE_LOOP.value,
             "loop": self._loop,
             "condition": self._condition,
             "body": self._body,
-            "body_parsed": [s.flatten() for s in self._body_parsed],
-            "control_flow": self._control_flow
+            "body_parsed": [s.flatten() for s in self._body_parsed]
         }
 
     def add_subselection(self, sub_selection: dict):
         self._body_parsed = sub_selection.get("statement") or []
         self._control_flow["for"] = sub_selection.get("for_loop") or []
         self._control_flow["while"] = sub_selection.get("while_loop") or []
+        self._body_parsed = ModelOperations.prune_body(
+            sub_selection.get("statement") or [],
+            sub_selection.get("for_loop") or [] +
+            sub_selection.get("while_loop") or []
+        )
 
     def get_as_strings(self) -> list:
         res: list = [self._loop]
@@ -322,7 +325,6 @@ class ConditionModel(ControlFlowGeneric):
     _condition: OperatorModel = None
     _true_condition: str = None
 
-
     def __init__(self, language: str, prefix: str, data: dict):
         self._condition = data.get("condition")
         self._control_flow = {
@@ -333,26 +335,41 @@ class ConditionModel(ControlFlowGeneric):
     def flatten(self) -> dict:
         # self._control_flow = self.flatten_dict("true", "false")
         return {
-            "model_type": "condition",
+            "model_type": ModelMap.CONDITION.value,
             "condition": self._condition,
             "blocks": {
                 "true_block": [s.flatten() for s in self._control_flow.get("true_block")],
-                "false_block": [s.flatten() for s in self._control_flow.get("false_block")] if self._control_flow.get("false_block") else []
+                "false_block": [s.flatten() for s in self._control_flow.get("false_block")] if self._control_flow.get(
+                    "false_block") else []
             }
         }
 
     def add_subselection(self, sub_selection: dict):
         self._control_flow["true_block"] = ModelOperations.prune_body(
             sub_selection.get("statement").get("true_block"),
-            sub_selection.get("if_condition").get("true_block") if sub_selection.get("if_condition") and sub_selection.get("if_condition").get("true_block") else [] +
-            sub_selection.get("for_loop").get("true_block") if sub_selection.get("for_loop") and sub_selection.get("for_loop").get("true_block") else [] +
-            sub_selection.get("while_loop").get("true_block") if sub_selection.get("while_loop") and sub_selection.get("while_loop").get("true_block") else []
+            sub_selection.get("if_condition").get("true_block") if sub_selection.get(
+                "if_condition") and sub_selection.get("if_condition").get("true_block") else [] +
+                                                                                             sub_selection.get(
+                                                                                                 "for_loop").get(
+                                                                                                 "true_block") if sub_selection.get(
+                "for_loop") and sub_selection.get("for_loop").get("true_block") else [] +
+                                                                                     sub_selection.get(
+                                                                                         "while_loop").get(
+                                                                                         "true_block") if sub_selection.get(
+                "while_loop") and sub_selection.get("while_loop").get("true_block") else []
         )
         self._control_flow["false_block"] = ModelOperations.prune_body(
             sub_selection.get("statement").get("false_block"),
-            sub_selection.get("if_condition").get("false_block") if sub_selection.get("if_condition") and sub_selection.get("if_condition").get("false_block") else [] +
-            sub_selection.get("for_loop").get("false_block") if sub_selection.get("for_loop") and sub_selection.get("for_loop").get("false_block") else [] +
-            sub_selection.get("while_loop").get("false_block") if sub_selection.get("while_loop") and sub_selection.get("while_loop").get("false_block") else []
+            sub_selection.get("if_condition").get("false_block") if sub_selection.get(
+                "if_condition") and sub_selection.get("if_condition").get("false_block") else [] +
+                                                                                              sub_selection.get(
+                                                                                                  "for_loop").get(
+                                                                                                  "false_block") if sub_selection.get(
+                "for_loop") and sub_selection.get("for_loop").get("false_block") else [] +
+                                                                                      sub_selection.get(
+                                                                                          "while_loop").get(
+                                                                                          "false_block") if sub_selection.get(
+                "while_loop") and sub_selection.get("while_loop").get("false_block") else []
         ) if sub_selection.get("statement").get("false_block") else []
 
     def get_as_strings(self) -> list:
@@ -385,12 +402,10 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
         self._parameters = sub_selection.get("parameter") or []
         self._statements = ModelOperations.prune_body(
             sub_selection.get("statement") or [],
-            [
-                *(sub_selection.get("for_loop") or []),
-                *(sub_selection.get("while_loop") or []),
-                *(sub_selection.get("if_condition") or []),
-                *(sub_selection.get("function") or [])
-            ]
+            sub_selection.get("for_loop") or [] +
+            sub_selection.get("while_loop") or [] +
+            sub_selection.get("if_condition") or [] +
+            sub_selection.get("function") or []
         )
 
     def get_as_statements(self) -> list:
@@ -399,14 +414,13 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
     def flatten(self):
         self._control_flow = self.flatten_dict("while", "if")
         return {
-            "model_type": "function",
+            "model_type": ModelMap.FUNCTION.value,
             "name": self._name,
             "global_id": self.get_global_identifier(),
             "hash": self._hash,
             "parameters": [p.flatten() for p in self._parameters],
             "body": self._body,
-            "body_parsed": [s.flatten() for s in self._statements],
-            "control_flow": self._control_flow
+            "body_parsed": [s.flatten() for s in self._statements]
         }
 
     def get_as_strings(self) -> list:
@@ -429,7 +443,7 @@ class VariableModel(ModelGeneric):
 
     def flatten(self):
         return {
-            "model_type": "variable",
+            "model_type": ModelMap.VARIABLE.value,
             "name": self._name,
             "type": self._type,
             "default_value": self._default
@@ -449,7 +463,7 @@ class DependencyModel(ModelGeneric):
 
     def flatten(self) -> dict:
         return {
-            "type": "dependency",
+            "type": ModelMap.DEPENDENCY.value,
             "source": self._source,
             "provides": [p.flatten() for p in self._provides if type(p) != str]
         }
@@ -465,8 +479,39 @@ class BasicString(ModelGeneric):
         self._value = data.get("value")
 
     def flatten(self):
-        return self._value
+        return {
+            "type": ModelMap.STRING.value,
+            "val": self._value
+        }
 
 
 def load_model(global_id):
     pass
+
+
+class ModelMap(Enum):
+    CLASS = "class"
+    FUNCTION = "function"
+    WHILE_LOOP = "while_loop"
+    FOR_LOOP = "for_loop"
+    CONDITION = "if_condition"
+    STATEMENT = "statement"
+    STRING = "string"
+    DEPENDENCY = "dependency"
+    VARIABLE = "variable"
+    REFERENCE = "reference"
+    _type_map = {
+        CLASS: ClassModel,
+        FUNCTION: FunctionModel,
+        WHILE_LOOP: WhileLoopModel,
+        FOR_LOOP: ForLoopModel,
+        CONDITION: ConditionModel,
+        STATEMENT: StatementModel,
+        STRING: BasicString,
+        DEPENDENCY: DependencyModel,
+        VARIABLE: VariableModel,
+        REFERENCE: ReferenceModel
+    }
+    @staticmethod
+    def get_model_class(name: str) -> type:
+        return ModelMap._type_map.value.get(name)

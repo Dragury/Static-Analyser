@@ -126,8 +126,19 @@
           "type": "array",
           "description": "The entities that are provided by this dependency",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/basic_string"
           }
+        }
+      }
+    },
+    "basic_string": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "val": {
+          "type": "string"
         }
       }
     }
