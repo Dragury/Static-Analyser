@@ -4,7 +4,7 @@
     [snippets.name]
         regex = "[a-zA-Z_][-a-zA-Z0-9_]+"
     [snippets.string]
-        regex = "\\\"[^\\\"\\n]\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]'|'''[.\\n]*'''"
+        regex = "\\\"[^\\\"\\n]*\\\"|\\\"\\\"\\\"[\\.\\n]*\\\"\\\"\\\"|'[^'\\n]*'|'''[.\\n]*'''"
     [snippets.number]
         regex = "0x[0-9ABCDEF]+|-?[0-9]+\\.[0-9]+|-?\\.[0-9]+|-?[0-9]+"
     [snippets.boolean]
@@ -14,16 +14,15 @@
     [snippets.empty_line]
         regex = "\\n\\s*\\n"
     [snippets.statement]
-        regex = "(\\1\\s{4}.*\\n)"
+        regex = "(\\1(\\s{4}|\\t).*\\n)"
     [snippets.statement_no_newline]
-        regex = "(\\1\\s{4}.*)"
+        regex = "(\\1(\\s{4}|\\t).*)"
     [snippets.entrypoint]
         regex = "if\\s+__name__\\s*==\\s*\\\"__main__\\\"\\s*:"
 
 [format_strings]
     [format_strings.type]
         regex = "{{name}}\\[{{name}}\\]"
-        # TODO recursive substitution. probably set a maximum depth and allow override from cli
     [format_strings.block_body]
         regex = "{{statement}}*{{statement_no_newline}}"
     [format_strings.exploded_parameters]
@@ -39,16 +38,22 @@
     [format_strings.return_type]
         regex = "\\s*->\\s*({{name}})"
     [format_strings.function]
-        regex = "(\\s*)(def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:\\n({{block_body}}))"
+        regex = "(\\s*)((def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:)\\n({{block_body}}))"
         dependencies = ["return_type", "block_body"]
     [format_strings.decorated_function]
         regex = "(\\s*)@({{name}})(\\((.+)\\))?\\n\\1({{function}})"
         dependencies = ["function"]
     [format_strings.decorator_call]
-        regex = "{{function}}\\1(\\4)\\s*=\\s*({{name}})\\(\\s*((,?{{name}})+)\\s*,\\s*\\)"
-        dependencies = ["function"]
-    [format_strings.parameter]
+        regex = "{{function}}\\n\\1(\\3)\\s*=\\s*({{name}})\\(\\s*((,?\\s*(({{name}}|{{value_no_dict}})\\s*)+)+)\\s*,\\s*\\)"
+        dependencies = ["function", "value_no_dict"]
+    [format_strings.parameter_def]
         regex = "(({{name}})\\s*(:\\s*({{name}}))?(\\s*=\\s*({{name}}|[\\\"'].*[\\\"']|[0-9]*(\\.[0-9]+)?))?,?\\s*)"
+    [format_strings.parameter_call]
+        regex = "((({{name}}|{{value}})\\s*,?)+)"
+        dependencies = ["value"]
+    [format_strings.function_call]
+        regex = "({{name}})\\s*\\(\\s*({{parameter_call}})?\\)"
+        dependencies = ["parameter_call"]
     [format_strings.class]
         regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{block_body}})"
         dependencies = ["block_body"]
@@ -64,10 +69,27 @@
     [format_strings.value_no_dict]
         regex = "({{name}}|{{string}}|{{number}}|{{boolean}})"
     [format_strings.bare_statement]
-        regex = "(\\s*)((({{name}})\\s*=\\s*)?(\\S.*))"
+        regex = "^(\\s*)((({{name}})\\s*=\\s*)?(?!return)(\\S.*))"
+    [format_strings.return_statement]
+        regex = "(return)\\s+(\\S*)"
     [format_strings.for_loop]
         regex = "(\\s*)(for .*:)\\n({{block_body}})"
         dependencies = ["block_body"]
+    [format_strings.mathematical_operation]
+        regex = "(({{value}}|{{name}})\\s*(+|-|\\*|/)(.*))"
+        dependencies = ["value", "name"]
+    [format_strings.chained_function_call]
+        regex = "({{function_call}}\\.)+({{function_call}})"
+        dependencies = ["function_call"]
+    [format_strings.standalone_function]
+        regex = "^\\s*{{function_call}}"
+        dependencies = ["function_call"]
+    [format_strings.object_method_call]
+        regex = "({{name}})\\.({{function_call}})"
+        dependencies = ["function_call"]
+    [format_strings.method_call]
+        regex = "(self.({{function_call}}))"
+        dependencies = ["function_call"]
     [format_strings.while_loop]
         regex = "(\\s*)(while (.*):)\\n({{block_body}})"
         dependencies = ["block_body"]
@@ -82,7 +104,7 @@
     [format_strings.imported_names]
         regex = "(({{name}}|\\*),?)"
     [format_strings.import]
-        regex = "(\\s*)import (({{name}}\\.?)+)"
+        regex = "^(\\s*)import (({{name}}\\.?)+)"
     [format_strings.undefined]
         regex = "bvfghnbvfghjkiuhjnhbvfddsxc"
 
@@ -117,12 +139,12 @@
         description = "Expand decorators around functions"
         [[directives.redecorate.variations]]
             regex_format_string = "decorated_function"
-            regex_replace = "\\1\\5\\1\\9 = \\2(\\9, \\4)\n"
+            regex_replace = "\\1\\5\n\\1\\8 = \\2(\\8, \\4)\n"
     [directives.redecorate_clean]
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
         [[directives.redecorate_clean.variations]]
             regex_format_string = "decorator_call"
-            regex_replace = "\\1\\3\\1\\4 = \\g<10>(\\g<12>)"
+            regex_replace = "\\1\\2\\n\\1\\3 = \\g<11>(\\g<12>)"
     [directives.generate_main]
         description = "create a pseudo main method for the file"
         [[directives.generate_main.variations]]
@@ -139,47 +161,53 @@
             name = 1
             body = 4
             subclasses = 3
-        [selectors.class.subselectors]
-            [selectors.class.subselectors.attribute]
-                search_text = "body"
-            [selectors.class.subselectors.class]
-                search_text = "body"
-            [selectors.class.subselectors.function]
-                search_text = "body"
+        [selectors.class.subselectors.attribute]
+            search_texts = ["body"]
+        [selectors.class.subselectors.class]
+            search_texts = ["body"]
+        [selectors.class.subselectors.function]
+            search_texts = ["body"]
     [selectors.function]
         model_element = "function"
         description = "Selects functions"
         top_level_selector = true
         [[selectors.function.variations]]
             regex_format_string = "function"
-            name = 2
-            parameters = 3
-            body = 6
-            explicit_type = 5
-        [selectors.function.subselectors]
-            [selectors.function.subselectors.function]
-                search_text = "body"
-            [selectors.function.subselectors.class]
-                search_text = "body"
-            [selectors.function.subselectors.statement]
-                search_text = "body"
-            [selectors.function.subselectors.parameter]
-                search_text = "parameters"
-            [selectors.function.subselectors.for_loop]
-                search_text = "body"
-            [selectors.function.subselectors.while_loop]
-                search_text = "body"
-            [selectors.function.subselectors.if_condition]
-                search_text = "body"
+            name = 3
+            parameters = 4
+            body = 7
+            explicit_type = 6
+            declaration = 2
+        [selectors.function.subselectors.function]
+            search_texts = ["body"]
+        [selectors.function.subselectors.class]
+            search_texts = ["body"]
+        [selectors.function.subselectors.statement]
+            search_texts = ["body"]
+        [selectors.function.subselectors.parameter]
+            search_texts = ["parameters"]
+        [selectors.function.subselectors.for_loop]
+            search_texts = ["body"]
+        [selectors.function.subselectors.while_loop]
+            search_texts = ["body"]
+        [selectors.function.subselectors.if_condition]
+            search_texts = ["body"]
     [selectors.parameter]
         model_element = "variable"
         description = "Selects information pertaining to parameters"
         top_level_selector = false
         [[selectors.parameter.variations]]
-            regex_format_string = "parameter"
+            regex_format_string = "parameter_def"
             name = 1
             type = 3
             initial_value = 5
+    [selectors.parameter_call]
+        model_element = "variable"
+        description = "selects parameters passed into a function call"
+        top_level_selector = false
+        [[selectors.parameter_call.variations]]
+            regex_format_string = "parameter_call"
+            initial_value = 2
     [selectors.attribute]
         model_element = "variable"
         description = "selects attributes under classes"
@@ -197,11 +225,10 @@
             regex_format_string = "for_loop"
             loop = 1
             body = 2
-        [selectors.for_loop.subselectors]
-            [selectors.for_loop.subselectors.for_loop]
-                search_text = "body"
-            [selectors.for_loop.subselectors.statement]
-                search_text = "body"
+        [selectors.for_loop.subselectors.for_loop]
+            search_texts = ["body"]
+        [selectors.for_loop.subselectors.statement]
+            search_texts = ["body"]
     [selectors.while_loop]
         model_element = "while_loop"
         description = "selects while loops"
@@ -211,14 +238,14 @@
             loop = 1
             body = 3
             condition = 2
-        [selectors.while_loop.subselectors]
-            [selectors.while_loop.subselectors.for_loop]
-                search_text = "body"
-            [selectors.while_loop.subselectors.while_loop]
-                search_text = "body"
-            [selectors.while_loop.subselectors.statement]
-                search_text = "body"
-
+        [selectors.while_loop.subselectors.for_loop]
+            search_texts = ["body"]
+        [selectors.while_loop.subselectors.while_loop]
+            search_texts = ["body"]
+        [selectors.while_loop.subselectors.statement]
+            search_texts = ["body"]
+        [selectors.while_loop.subselectors.if_condition]
+            search_texts = ["body"]
     [selectors.if_condition]
         model_element = "if_condition"
         description = "selects condition blocks"
@@ -232,6 +259,12 @@
             condition = 2
             true_block = 3
             false_block = 6
+        [selectors.if_condition.subselectors.statement]
+            search_texts = ["true_block", "false_block"]
+        [selectors.if_condition.subselectors.if_condition]
+            search_texts = ["true_block", "false_block"]
+        [selectors.if_condition.subselectors.while_loop]
+            search_texts = ["true_block", "false_block"]
     [selectors.statement]
         model_element = "statement"
         description = "selects statements from a string without whitespace prefix"
@@ -240,10 +273,58 @@
             regex_format_string = "bare_statement"
             lhs = 3
             rhs = 4
+            body = 2
+        [[selectors.statement.variations]]
+            regex_format_string = "return_statement"
+            lhs = 0
+            rhs = 1
+        [selectors.statement.subselectors.operation]
+            search_texts = ["rhs"]
+        [selectors.statement.subselectors.reference]
+            search_texts = ["rhs"]
+
     [selectors.operation]
         model_element = false
         description = "breaks apart operations"
         top_level_selector = false
+        [[selectors.operation.variations]]
+            regex_format_string = "mathematical_operation"
+            lhs = 2
+            sign = 3
+            rhs = 4
+            body = 1
+        [selectors.operation.subselectors.operation]
+            search_texts = ["rhs"]
+        [selectors.operation.subselectors.reference]
+            search_texts = ["rhs", "lhs"]
+    [selectors.reference]
+        model_element = "reference"
+        description = "captures references to functions and classes"
+        top_level_selector = false
+        [[selectors.reference.variations]]
+            regex_format_string = "chained_function_call"
+            complete_call = 0
+            target = 2
+            call = 11
+            parameters = 12
+        [[selectors.reference.variations]]
+            regex_format_string = "method_call"
+            complete_call = 0
+            call = 2
+            parameters = 3
+        [[selectors.reference.variations]]
+            regex_format_string = "object_method_call"
+            target = 0
+            call = 1
+            parameters = 3
+        [[selectors.reference.variations]]
+            regex_format_string = "standalone_function"
+            call = 0
+            parameters = 1
+        [selectors.reference.subselectors.parameter_call]
+            search_texts = ["parameters"]
+        [selectors.reference.subselectors.reference]
+            search_texts = ["target"]
     [selectors.dependency]
         model_element = "dependency"
         description = "selects import statements"
@@ -258,7 +339,7 @@
             provides = 2
         [selectors.dependency.subselectors]
             [selectors.dependency.subselectors.provided_dependencies]
-                search_text = "provides"
+                search_texts = ["provides"]
     [selectors.provided_dependencies]
         model_element = "basic_string"
         description = "gets the provided entities from an import"
@@ -272,14 +353,99 @@
     name = "python3"
     description = "Support for the python3 language"
     file_extensions = ["py", "pyw"]
+    method_prefix = "self."
     [info.global_sources]
         posix = [
         "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages",
         "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7"
         ]
     [info.builtins]
-        functions = ["print"]
-        types = ["str", "dict", "int", "None", "list"]
+        functions = [
+            "abs",
+            "all",
+            "any",
+            "ascii",
+            "bin",
+            "bool",
+            "breakpoint",
+            "bytearray",
+            "bytes",
+            "callable",
+            "chr",
+            "classmethod",
+            "compile",
+            "complex",
+            "delattr",
+            "dict",
+            "dir",
+            "divmod",
+            "enumerate",
+            "eval",
+            "exec",
+            "filter",
+            "float",
+            "format",
+            "frozenset",
+            "getattr",
+            "globals",
+            "hasattr",
+            "hash",
+            "help",
+            "hex",
+            "id",
+            "input",
+            "int",
+            "isinstance",
+            "issubclass",
+            "iter",
+            "len",
+            "list",
+            "locals",
+            "map",
+            "max",
+            "memoryview",
+            "min",
+            "next",
+            "object",
+            "oct",
+            "open",
+            "ord",
+            "pow",
+            "print",
+            "property",
+            "range",
+            "repr",
+            "reversed",
+            "round",
+            "set",
+            "setattr",
+            "slice",
+            "sorted",
+            "staticmethod",
+            "str",
+            "sum",
+            "super",
+            "tuple",
+            "type",
+            "vars",
+            "zip",
+            "__import__"
+        ]
+        types = [
+            "bool",
+            "bytes",
+            "dict",
+            "float",
+            "frozenset",
+            "int",
+            "iter",
+            "list",
+            "object",
+            "set",
+            "str",
+            "tuple",
+            "type"
+        ]
 [json_mappings]
     function = "functions"
     class = "classes"
