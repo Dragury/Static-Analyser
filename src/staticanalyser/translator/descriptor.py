@@ -6,7 +6,7 @@ from os import path
 from pathlib import Path
 
 import sys
-from typing import Union
+from typing import Union, Iterator
 
 from jsonschema import validate
 
