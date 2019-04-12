@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import click
 from staticanalyser.translator.translate import translate
+from staticanalyser.navigator.navigate import navigate
 import sys
 import logging
 
@@ -40,6 +41,12 @@ def translate_cmd(file: list, jobs: int, source_paths: list, force, lazy, output
         "output_dir": output_dir
     }
     translate(file, options)
+
+
+@cli.command("navigate")
+@click.argument("global_id", nargs=1, type=click.STRING, required=True, metavar="[global id]")
+def navigate_cmd(global_id: str):
+    navigate(global_id)
 
 
 if __name__ == "__main__":

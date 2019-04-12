@@ -3,8 +3,12 @@ import copy
 from enum import Enum
 import json
 from hashlib import md5
-from staticanalyser.shared.platform_constants import SCHEMA_LOCATION
+from typing import List, Union
+
+from staticanalyser.shared.platform_constants import SCHEMA_LOCATION, MODEL_DIR
+import staticanalyser.shared.config as config
 import logging
+from os import path
 
 with open(SCHEMA_LOCATION, "r") as s:
     SCHEMA: dict = json.load(s)
@@ -29,6 +33,48 @@ class ModelOperations(object):
         except NotImplementedError:
             return body
 
+    @staticmethod
+    def load_model_from_dict(data: dict):
+        entity_type: str = data.get("model_type")
+        klazz: type = ModelMap.get_model_class(entity_type)
+        res: Union[FunctionModel, ClassModel, DependencyModel] = klazz(hollow=True)
+        res.load_from_dict(data)
+        return res
+
+    @staticmethod
+    def get_model_file(global_id: str) -> path:
+        res = ModelOperations._find_file_in_dir(global_id, path.abspath(".model"))
+        if not res:
+            res = ModelOperations._find_file_in_dir(global_id, MODEL_DIR)
+        return res
+
+    @staticmethod
+    def _find_file_in_dir(global_id: str, search_dir: path, return_gid: bool = False) -> path:
+        id_parts: List[str] = global_id.split(".")
+        current_search_path: path = search_dir
+        _ft = config.get_filetypes()
+        possible_filetypes: List[str] = []
+        for k in _ft.keys():
+            for lang in _ft[k]:
+                if lang == id_parts[0]:
+                    possible_filetypes.append(k)
+        for part in id_parts:
+            current_search_path = path.join(current_search_path, part)
+            for ft in possible_filetypes:
+                test_path = "{}.{}.json".format(current_search_path, ft)
+                if path.isfile(test_path):
+                    if return_gid:
+                        return ".".join(id_parts[:id_parts.index(part)+1])
+                    return test_path
+        return None
+
+    @staticmethod
+    def get_base_global_id(global_id: str):
+        res = ModelOperations._find_file_in_dir(global_id, path.abspath(".model"), True)
+        if not res:
+            res = ModelOperations._find_file_in_dir(global_id, MODEL_DIR, True)
+        return res
+
 
 class ModelGeneric(object):
     def flatten(self) -> dict:
@@ -42,6 +88,9 @@ class ModelGeneric(object):
 
     def add_subselection(self, sub_selection: dict):
         pass
+
+    def load_from_dict(self, data: dict):
+        raise NotImplementedError()
 
 
 class ReferenceModel(ModelGeneric):
@@ -84,6 +133,9 @@ class ReferenceModel(ModelGeneric):
         if sub_selection.get("parameter"):
             self._parameters = sub_selection.get("parameter")
 
+    def load_from_dict(self, data: dict):
+        raise NotImplemented
+
 
 class ControlFlowGeneric(ModelGeneric):
     _control_flow: dict = None
@@ -106,20 +158,21 @@ class ControlFlowGeneric(ModelGeneric):
 
 
 class NamedModelGeneric(ModelGeneric):
-    _global_identifier: ReferenceModel = None
+    _global_identifier: str = None
     _prefix: str = None
     _name: str = None
     _hash: str = None
     _lang: str = None
     _body: str = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        self._name = data.get("name")
-        self._prefix = prefix
-        self._global_identifier = "{}.{}".format(prefix, self._name)
-        self._body = data.get("body")
-        self._hash = md5(self._body.encode("utf-8")).hexdigest()
-        self._lang = language
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._name = data.get("name")
+            self._prefix = prefix
+            self._global_identifier = "{}.{}".format(prefix, self._name)
+            self._body = data.get("body")
+            self._hash = md5(self._body.encode("utf-8")).hexdigest()
+            self._lang = language
 
     def get_global_identifier(self):
         return self._global_identifier
@@ -139,8 +192,8 @@ class ClassModel(NamedModelGeneric):
     _attributes: list = None
     _functions: list = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        super(ClassModel, self).__init__(language, prefix, data)
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        super(ClassModel, self).__init__(language, prefix, data, hollow)
         self._subclasses = []
         self._attributes = []
         self._functions = []
@@ -163,13 +216,26 @@ class ClassModel(NamedModelGeneric):
         return {
             "model_type": ModelMap.CLASS.value,
             "name": self._name,
-            "global_id": self.get_global_identifier(),
+            "global_id": self._global_identifier,
             "hash": self._hash,
-            "subclasses": flattened_subclasses,
+            "subclasses": flattened_subclasses,  # Umm, this should be parent classes?
             "methods": flattened_functions,
             "attributes": flattened_attributes,
             "body": self._body
         }
+
+    def load_from_dict(self, data: dict):
+        self._name = data.get("name")
+        self._global_identifier = data.get("global_id")
+        self._hash = data.get("hash")
+        self._body = data.get("body")
+        self._attributes = []
+        for attribute in data.get("attributes"):
+            a = VariableModel(hollow=True)
+            a.load_from_dict(attribute)
+            self._attributes.append(a)
+        # TODO Function loading
+        # TODO *PARENT* class reference loading
 
 
 class OperatorType(Enum):
@@ -392,11 +458,12 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
     _control_flow: dict = None
     _declaration: str = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        super(FunctionModel, self).__init__(language, prefix, data)
-        self._parameters = data.get("parameters")
-        self._control_flow = {}
-        self._declaration = data.get("declaration")
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        super(FunctionModel, self).__init__(language, prefix, data, hollow)
+        if not hollow:
+            self._parameters = data.get("parameters")
+            self._control_flow = {}
+            self._declaration = data.get("declaration")
 
     def add_subselection(self, sub_selection: dict):
         self._parameters = sub_selection.get("parameter") or []
@@ -428,18 +495,29 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
         res += [l.strip() for l in self._body.split('\n')]
         return res
 
+    def load_from_dict(self, data: dict):
+        self._name = data.get("name")
+        self._hash = data.get("hash")
+        self._body = data.get("body")
+        self._global_identifier = data.get("global_id")
+        # TODO load body
+        self._parameters = []
+        for parameter in data.get("parameters"):
+            p = VariableModel(hollow=True)
+            p.load_from_dict(parameter)
+            self._parameters.append(p)
+
 
 class VariableModel(ModelGeneric):
-    _lang: str = None
     _name: str = None
     _type: str = None
     _default: str = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        self._default = data.get("initial_value") or data.get("default_value") or ""
-        self._name = data.get("name")
-        self._type = data.get("type") or ""
-        self._lang = language
+    def __init__(self, language: str = "", prefix: str = "", data: dict = {}, hollow: bool = False):
+        if not hollow:
+            self._default = data.get("initial_value") or data.get("default_value") or ""
+            self._name = data.get("name")
+            self._type = data.get("type") or ""
 
     def flatten(self):
         return {
@@ -449,27 +527,37 @@ class VariableModel(ModelGeneric):
             "default_value": self._default
         }
 
+    def load_from_dict(self, data: dict):
+        self._name = data.get("name")
+        self._type = data.get("type")
+        self._default = data.get("default_value")
+
 
 class DependencyModel(ModelGeneric):
     _source: str = None
     _provides: list = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        self._source = data.get("source")
-        self._provides = ["*"]
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._source = data.get("source")
+            self._provides = ["*"]
 
     def add_subselection(self, sub_selection: dict):
         self._provides = sub_selection.get("provided_dependencies")
 
     def flatten(self) -> dict:
         return {
-            "type": ModelMap.DEPENDENCY.value,
+            "model_type": ModelMap.DEPENDENCY.value,
             "source": self._source,
             "provides": [p.flatten() for p in self._provides if type(p) != str]
         }
 
     def get_provided_imports(self):
         return self._provides
+
+    def load_from_dict(self, data: dict):
+        self._source = data.get("source")
+        self._provides = [BasicString("", "", {"value": p}) for p in data.get("provides")]
 
 
 class BasicString(ModelGeneric):
@@ -512,6 +600,7 @@ class ModelMap(Enum):
         VARIABLE: VariableModel,
         REFERENCE: ReferenceModel
     }
+
     @staticmethod
     def get_model_class(name: str) -> type:
         return ModelMap._type_map.value.get(name)
