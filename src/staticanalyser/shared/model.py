@@ -98,10 +98,11 @@ class ReferenceModel(ModelGeneric):
     _target: str = None
     _parameters: list = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        self._ref = data.get("call")
-        self._target = data.get("target") or ""
-        self._parameters = data.get("parameters") or ""
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._ref = data.get("call")
+            self._target = data.get("target") or ""
+            self._parameters = data.get("parameters") or ""
 
     def lookup(self) -> bool:
         pass
@@ -134,7 +135,9 @@ class ReferenceModel(ModelGeneric):
             self._parameters = sub_selection.get("parameter")
 
     def load_from_dict(self, data: dict):
-        raise NotImplemented
+        self._ref = data.get("ref")
+        self._target = data.get("target")
+        self._parameters = data.get("parameters")
 
 
 class ControlFlowGeneric(ModelGeneric):
@@ -273,10 +276,11 @@ class StatementModel(ModelGeneric):
     _rhs: OperatorModel = None
     _body: str = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        self._lhs = data.get("lhs")
-        self._rhs = data.get("rhs")
-        self._body = data.get("body")
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._lhs = data.get("lhs")
+            self._rhs = data.get("rhs")
+            self._body = data.get("body")
 
     def add_subselection(self, sub_selection: dict):
         if sub_selection.get("reference"):
@@ -300,6 +304,18 @@ class StatementModel(ModelGeneric):
             "rhs": rhs
         }
 
+    def load_from_dict(self, data: dict):
+        self._lhs = data.get("lhs")
+        rhs_data: dict = data.get("rhs")
+        rhs: Union[ModelGeneric, str] = None
+        if type(rhs_data) is dict:
+            rhs_klazz = ModelMap.get_model_class(rhs_data.get("model_type"))
+            rhs = rhs_klazz(hollow=True)
+            rhs.load_from_dict(rhs_data)
+        else:
+            rhs = rhs_data
+        self._rhs = rhs
+
 
 class ForLoopModel(ControlFlowGeneric):
     _loop: str = None
@@ -307,13 +323,13 @@ class ForLoopModel(ControlFlowGeneric):
     _body_parsed: list = None
     _control_flow: dict = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
-        self._loop = data.get("loop")
-        self._body = data.get("body")
-        self._control_flow = {}
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._loop = data.get("loop")
+            self._body = data.get("body")
+            self._control_flow = {}
 
     def flatten(self) -> dict:
-        self._control_flow = self.flatten_dict("for", "while", "if")
         return {
             "model_type": ModelMap.FOR_LOOP.value,
             "loop": self._loop,
@@ -341,6 +357,16 @@ class ForLoopModel(ControlFlowGeneric):
 
     def get_as_statements(self) -> list:
         return self._body_parsed
+
+    def load_from_dict(self, data: dict):
+        self._loop = data.get("loop")
+        self._body = data.get("body")
+        self._body_parsed = []
+        for entity in data.get("body_parsed"):
+            klazz = ModelMap.get_model_class(entity.get("model_type"))
+            e = klazz(hollow=True)
+            e.load_from_dict(entity)
+            self._body_parsed.append(e)
 
 
 class WhileLoopModel(ControlFlowGeneric):
@@ -479,7 +505,6 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
         return self._statements
 
     def flatten(self):
-        self._control_flow = self.flatten_dict("while", "if")
         return {
             "model_type": ModelMap.FUNCTION.value,
             "name": self._name,
@@ -499,6 +524,7 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
         self._name = data.get("name")
         self._hash = data.get("hash")
         self._body = data.get("body")
+        self._statements = []
         self._global_identifier = data.get("global_id")
         # TODO load body
         self._parameters = []
@@ -506,6 +532,14 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
             p = VariableModel(hollow=True)
             p.load_from_dict(parameter)
             self._parameters.append(p)
+        body_parsed: List[dict] = data.get("body_parsed")
+        for entity in body_parsed:
+            print("Loading entity of type {}.".format(entity.get("model_type")))
+            klazz = ModelMap.get_model_class(entity.get("model_type"))
+            e = klazz(hollow=True)
+            e.load_from_dict(entity)
+            self._statements.append(e)
+
 
 
 class VariableModel(ModelGeneric):
