@@ -534,7 +534,6 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
             self._parameters.append(p)
         body_parsed: List[dict] = data.get("body_parsed")
         for entity in body_parsed:
-            print("Loading entity of type {}.".format(entity.get("model_type")))
             klazz = ModelMap.get_model_class(entity.get("model_type"))
             e = klazz(hollow=True)
             e.load_from_dict(entity)
