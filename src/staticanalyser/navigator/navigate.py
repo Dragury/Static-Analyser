@@ -22,7 +22,7 @@ class Navigator:
                 return True, model_id
         return False, ""
 
-    def _search_model_for_gid(self, global_id: str, target: Union[dict, list]) -> Tuple[bool, object]:
+    def _search_model_for_gid(self, global_id: str, target: Union[dict, list]) -> Tuple[bool, NamedModelGeneric]:
         if type(target) is list:
             for e in target:
                 res = self._search_model_for_gid(global_id, e)
@@ -45,7 +45,10 @@ class Navigator:
                     return res
         return False, None
 
-    def lookup_entity(self, global_id: str, failout: bool = False) -> object:
+    def find_references_to_global_id(self, global_id: str) -> List[NamedModelGeneric]:
+        pass
+
+    def lookup_entity(self, global_id: str, failout: bool = False) -> Tuple[bool, NamedModelGeneric]:
         entity_loaded = self.entity_model_is_loaded(global_id)
         if entity_loaded[0]:
             return self._search_model_for_gid(global_id, self._loaded_models[entity_loaded[1]])
@@ -55,23 +58,53 @@ class Navigator:
         else:
             return None
 
-    def load_entity(self, global_id: str):
+    def _find_all_references(self, model: dict) -> List[str]:
+        ret: List[str] = []
+        if type(model) is list:
+            for e in model:
+                res: List[str] = self._find_all_references(e)
+                ret += res
+        elif type(model) is dict:
+            for k in model.keys():
+                res = self._find_all_references(model[k])
+                ret += res
+        elif type(model) is str:
+            return []
+        else:
+            if "_ref" in model.__dict__.keys():
+                ret.append(model.__dict__.get("_ref"))
+            for k in model.__dict__.keys():
+                res = self._find_all_references(model.__dict__[k])
+                ret += res
+        return ret
+
+    def find_references_in_model(self, global_id: str):
+        search_model = ModelOperations.get_base_global_id(global_id)
+        return self._find_all_references(self._loaded_models[search_model])
+
+    def load_entity(self, global_id: str, load_dependencies: bool = False):
         if global_id.split(".")[0] == "builtin":
             return
-        model_file = ModelOperations.get_model_file(global_id)
-        with open(model_file, "r") as fp:
-            model_data:dict = json.load(fp)
         model: dict = {"classes": [], "functions": [], "dependencies": []}
-        for klazz in model_data.get("classes"):
-            c = ModelOperations.load_model_from_dict(klazz)
-            model["classes"].append(c)
-        for func in model_data.get("functions"):
-            f = ModelOperations.load_model_from_dict(func)
-            model["functions"].append(f)
-        for dependency in model_data.get("dependencies"):
-            d = ModelOperations.load_model_from_dict(dependency)
-            model["dependencies"].append(d)
-        self._loaded_models[ModelOperations.get_base_global_id(global_id)] = model
+        if ModelOperations.get_base_global_id(global_id) not in self._loaded_models.keys():
+            model_file = ModelOperations.get_model_file(global_id)
+            if model_file:
+                with open(model_file, "r") as fp:
+                    model_data: dict = json.load(fp)
+                for klazz in model_data.get("classes"):
+                    c = ModelOperations.load_model_from_dict(klazz)
+                    model["classes"].append(c)
+                for func in model_data.get("functions"):
+                    f = ModelOperations.load_model_from_dict(func)
+                    model["functions"].append(f)
+                for dependency in model_data.get("dependencies"):
+                    d = ModelOperations.load_model_from_dict(dependency)
+                    model["dependencies"].append(d)
+                self._loaded_models[ModelOperations.get_base_global_id(global_id)] = model
+        if load_dependencies:
+            dependencies: List[str] = self._find_all_references(model)
+            for dependency in dependencies:
+                self.load_entity(dependency, True)
 
     def __str__(self):
         return str(self._loaded_models)
@@ -79,5 +112,6 @@ class Navigator:
 
 def navigate(global_id):
     n = Navigator()
-    n.load_entity(global_id)
-    print(n.lookup_entity("python3.staticanalysertest.translator.sample.my_decorator.inner"))
+    n.load_entity(global_id, load_dependencies=True)
+    print(n.lookup_entity(global_id))
+    print(n.find_references_in_model(global_id))
