@@ -68,7 +68,7 @@ class Navigator:
             for k in model.keys():
                 res = self._find_all_references(model[k])
                 ret += res
-        elif type(model) is str:
+        elif type(model) is str or model is None:
             return []
         else:
             if "_ref" in model.__dict__.keys():

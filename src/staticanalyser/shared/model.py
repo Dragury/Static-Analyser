@@ -37,9 +37,11 @@ class ModelOperations(object):
     def load_model_from_dict(data: dict):
         entity_type: str = data.get("model_type")
         klazz: type = ModelMap.get_model_class(entity_type)
-        res: Union[FunctionModel, ClassModel, DependencyModel] = klazz(hollow=True)
-        res.load_from_dict(data)
-        return res
+        if klazz:
+            res: Union[FunctionModel, ClassModel, DependencyModel] = klazz(hollow=True)
+            res.load_from_dict(data)
+            return res
+        return None
 
     @staticmethod
     def get_model_file(global_id: str) -> path:
@@ -535,9 +537,10 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
         body_parsed: List[dict] = data.get("body_parsed")
         for entity in body_parsed:
             klazz = ModelMap.get_model_class(entity.get("model_type"))
-            e = klazz(hollow=True)
-            e.load_from_dict(entity)
-            self._statements.append(e)
+            if klazz:
+                e = klazz(hollow=True)
+                e.load_from_dict(entity)
+                self._statements.append(e)
 
 
 

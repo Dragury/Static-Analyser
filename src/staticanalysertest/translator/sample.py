@@ -2,6 +2,7 @@
 import argparse
 import toml
 from sys import stderr, stdin, stdout
+from json import loads
 
 
 class MyClass:
@@ -48,6 +49,7 @@ def my_method_3() -> None:
             print("goodbye!!")
     while True:
         print(test)
+        empty = loads("{}")
 
 
 if __name__ == "__main__":
