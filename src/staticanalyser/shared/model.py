@@ -175,8 +175,9 @@ class NamedModelGeneric(ModelGeneric):
             self._name = data.get("name")
             self._prefix = prefix
             self._global_identifier = "{}.{}".format(prefix, self._name)
-            self._body = data.get("body")
-            self._hash = md5(self._body.encode("utf-8")).hexdigest()
+            if data.get("body"):
+                self._body = data.get("body")
+                self._hash = md5(self._body.encode("utf-8")).hexdigest()
             self._lang = language
 
     def get_global_identifier(self):
@@ -543,13 +544,13 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
                 self._statements.append(e)
 
 
-
-class VariableModel(ModelGeneric):
+class VariableModel(NamedModelGeneric):
     _name: str = None
     _type: str = None
     _default: str = None
 
-    def __init__(self, language: str = "", prefix: str = "", data: dict = {}, hollow: bool = False):
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        super(VariableModel, self).__init__(language, prefix, data, hollow)
         if not hollow:
             self._default = data.get("initial_value") or data.get("default_value") or ""
             self._name = data.get("name")
