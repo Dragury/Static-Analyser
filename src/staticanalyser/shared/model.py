@@ -133,8 +133,8 @@ class ReferenceModel(ModelGeneric):
         return self._parameters
 
     def add_subselection(self, sub_selection: dict):
-        if sub_selection.get("parameter"):
-            self._parameters = sub_selection.get("parameter")
+        if sub_selection.get("parameter_call"):
+            self._parameters = sub_selection.get("parameter_call")
 
     def load_from_dict(self, data: dict):
         self._ref = data.get("ref")
@@ -577,10 +577,12 @@ class DependencyModel(ModelGeneric):
     def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
         if not hollow:
             self._source = data.get("source")
-            self._provides = ["*"]
+            self._provides = data.get("provides")
+            print(data.get("provides"))
 
     def add_subselection(self, sub_selection: dict):
-        self._provides = sub_selection.get("provided_dependencies")
+        if sub_selection.get("provided_dependencies") != []:
+            self._provides = sub_selection.get("provided_dependencies")
 
     def flatten(self) -> dict:
         return {
@@ -591,6 +593,9 @@ class DependencyModel(ModelGeneric):
 
     def get_provided_imports(self):
         return self._provides
+
+    def get_source(self):
+        return self._source
 
     def load_from_dict(self, data: dict):
         self._source = data.get("source")
@@ -609,6 +614,9 @@ class BasicString(ModelGeneric):
             "val": self._value
         }
 
+    def get_value(self):
+        return self._value
+
 
 def load_model(global_id):
     pass
@@ -621,7 +629,7 @@ class ModelMap(Enum):
     FOR_LOOP = "for_loop"
     CONDITION = "if_condition"
     STATEMENT = "statement"
-    STRING = "string"
+    STRING = "basic_string"
     DEPENDENCY = "dependency"
     VARIABLE = "variable"
     REFERENCE = "reference"

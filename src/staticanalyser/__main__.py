@@ -6,12 +6,11 @@ import sys
 import logging
 
 
-def setup_logger():
-    logging.basicConfig(
-        level=logging.DEBUG,
-        filename="sa_out.log",
-        format='%(asctime)s - %(name)s - %(processName)s - %(levelname)s - %(message)s'
-    )
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename="sa_out.log",
+    format='%(asctime)s - %(name)s - %(processName)s - %(levelname)s - %(message)s'
+)
 
 
 # The 'main' method for the static analyser, runs with a gui or cli
@@ -32,7 +31,7 @@ def cli():
               help="Lazy translation. Translate global sources on demand. Disabling lazy is not recommended")
 def translate_cmd(file: list, jobs: int, source_paths: list, force, lazy, output_dir):
     """Translate files and directory contents ready for static analysis"""
-    setup_logger()
+    # setup_logger()
     options: dict = {
         "jobs": jobs,
         "source_paths": list(source_paths),

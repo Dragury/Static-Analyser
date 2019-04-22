@@ -125,7 +125,12 @@ class Selector(object):
                     artefact_info: dict = {}
                     for k in v.keys():
                         if k != "regex_format_string":
-                            artefact_info[k] = artefact[v[k]]
+                            print("trying to get {}({}) from {}".format(k, v[k], artefact))
+                            try:
+                                artefact_info[k] = artefact[v[k]]
+                            except IndexError:
+                                print("Index failed for looking up {} in {} for {}".format(k, self._name, artefact))
+                    print("artefact info is {}".format(artefact_info))
                     a: Union[
                         model.ModelGeneric,
                         model.NamedModelGeneric
@@ -337,22 +342,25 @@ class Descriptor(object):
                                 logging.debug("Trying to match for {}".format(item))
                                 if type(item) is str:
                                     if call == item:
-                                        call = "builtin.{}".format(call)
+                                        call = "{}.builtin.{}".format(self._lang, call)
                                         call_found = True
                                         rhs.set_ref(call)
                                         logging.info("Reference matched to {}".format(call))
                                         break
                                 else:
                                     if type(item) is model.DependencyModel:
-                                        impo: str
+                                        impo: model.BasicString
                                         for impo in item.get_provided_imports():
-                                            if impo == call:
+                                            impo_str: str = impo.get_value()
+                                            if impo_str == call:
                                                 call_found = True
-                                                call = impo  # TODO full reference to import
-                                                logging.info("Reference matched to imported object")
+                                                call = ".".join([self._lang, item.get_source(), impo_str])
+                                                logging.info("Reference matched to imported object {}".format(call))
                                             if impo == '*':
                                                 logging.info("Reference matched to wildcard")
+                                                call = ".".join([self._lang, item.get_source(), "*"])
                                                 call_found = True
+                                            rhs.set_ref(call)
                                     elif type(item) in [model.FunctionModel, model.ClassModel]:
                                         logging.debug("Comparing to {}".format(item.get_name()))
                                         if item.get_name() == call:
@@ -391,6 +399,7 @@ class Descriptor(object):
         self._resolve_classes(namespace_stack, res.get("classes"))
         logging.debug("resolving top level functions")
         self._resolve_functions(namespace_stack, res.get("functions"))
+        return res
 
     def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path, force: bool):
         # TODO normalise whitespace for better parsing, either \t or 4 spaces

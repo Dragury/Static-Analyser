@@ -336,7 +336,7 @@
         [[selectors.dependency.variations]]
             regex_format_string = "import"
             source = 1
-            provides = 2
+            provides = 1
         [selectors.dependency.subselectors]
             [selectors.dependency.subselectors.provided_dependencies]
                 search_texts = ["provides"]

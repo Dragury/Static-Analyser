@@ -143,8 +143,36 @@ class Navigator:
             for dependency in dependencies:
                 self.load_entity(dependency, True)
 
-    def find_usages(self, func: FunctionModel, var: str):
-        pass
+    @staticmethod
+    def _find_usage_assignment(st: StatementModel, variable: str):
+        rhs = st.get_rhs()
+        if type(rhs) == ReferenceModel:
+            rhs: ReferenceModel
+            if rhs.get_ref() == variable:
+                return st.get_lhs()
+        return None
+
+    @staticmethod
+    def _find_usage_parameter(st: StatementModel, variable: str):
+        rhs = st.get_rhs()
+        if type(rhs) == ReferenceModel:
+            rhs: ReferenceModel
+            for parm in rhs.get_parameters():
+                parm: BasicString
+                if parm.get_value() == variable:
+                    return rhs.get_ref()
+        return None
+
+    @staticmethod
+    def find_usages(func: FunctionModel, variable: str) -> List[Tuple[FunctionModel, int]]:
+        ret: List[Tuple[FunctionModel, int]] = []
+        for statement in func.get_as_statements():
+            pass
+        return ret
+
+    @staticmethod
+    def _is_usage(rhs: ReferenceModel, variable: str) -> bool:
+        return True  # TODO
 
     def __str__(self):
         return str(self._loaded_models)
