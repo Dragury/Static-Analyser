@@ -5,7 +5,6 @@ from staticanalyser.navigator.navigate import navigate
 import sys
 import logging
 
-
 logging.basicConfig(
     level=logging.DEBUG,
     filename="sa_out.log",
@@ -42,10 +41,23 @@ def translate_cmd(file: list, jobs: int, source_paths: list, force, lazy, output
     translate(file, options)
 
 
-@cli.command("navigate")
+@cli.command("find")
 @click.argument("global_id", nargs=1, type=click.STRING, required=True, metavar="[global id]")
-def navigate_cmd(global_id: str):
-    navigate(global_id)
+@click.option("-r", "--recursion-depth", "recursion_depth", type=click.INT,
+              help="Recursion depth for finding variable usage", default=10)
+def navigate_cmd(global_id: str, recursion_depth: int):
+    # TODO probably load all files in the .model folder if I can find any, then search for GID
+    navigate(global_id, recursion_depth)
+
+
+@cli.command("hunt")
+@click.argument("file", type=click.Path(exists=True), required=True)
+@click.option("-s", "--source-path", "source_paths", multiple=True, type=click.Path(exists=True),
+              help="Path(s) for rooting translation, defaults to current working dir")
+@click.option("-r", "--recursion-depth", "recursion_depth", type=click.INT,
+              help="Recursion depth for finding variable usage", default=10)
+def hunt_cmd(file, source_paths: list, recursion_depth: int):
+    print("TODO!")
 
 
 if __name__ == "__main__":

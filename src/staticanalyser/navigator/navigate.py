@@ -36,13 +36,14 @@ class Navigator:
         elif type(target) is str:
             return False, None
         else:
-            if "_global_identifier" in target.__dict__.keys():
-                if target.__dict__.get("_global_identifier") == global_id:
-                    return True, target
-            for k in target.__dict__.keys():
-                res = self._search_model_for_gid(global_id, target.__dict__[k])
-                if res[0]:
-                    return res
+            if target:
+                if "_global_identifier" in target.__dict__.keys():
+                    if target.__dict__.get("_global_identifier") == global_id:
+                        return True, target
+                for k in target.__dict__.keys():
+                    res = self._search_model_for_gid(global_id, target.__dict__[k])
+                    if res[0]:
+                        return res
         return False, None
 
     def find_references_to_global_id(self, global_id: str) -> List[FunctionModel]:
@@ -158,16 +159,24 @@ class Navigator:
         if type(rhs) == ReferenceModel:
             rhs: ReferenceModel
             for parm in rhs.get_parameters():
-                parm: BasicString
-                if parm.get_value() == variable:
+                parm: VariableModel
+                if parm.get_default() == variable:
                     return rhs.get_ref()
         return None
 
     @staticmethod
-    def find_usages(func: FunctionModel, variable: str) -> List[Tuple[FunctionModel, int]]:
-        ret: List[Tuple[FunctionModel, int]] = []
+    def find_usages(func: FunctionModel, variable: str) -> List[FunctionModel]:
+        ret: List[FunctionModel] = []
         for statement in func.get_as_statements():
-            pass
+            if type(statement) is StatementModel:
+                new_var = Navigator._find_usage_assignment(statement, variable)
+                if new_var:
+                    ret += Navigator.find_usages(func, new_var)
+                func_res = Navigator._find_usage_parameter(statement, variable)
+                if func_res:
+                    ret.append(func_res)
+            if issubclass(type(statement), ControlFlowGeneric):
+                ret += Navigator.find_usages(statement, variable)
         return ret
 
     @staticmethod
@@ -178,16 +187,18 @@ class Navigator:
         return str(self._loaded_models)
 
 
-def navigate(global_id):
+def navigate(global_id: str, recursion_depth: int):
     n = Navigator()
     n.load_entity(global_id, load_dependencies=True)
     # print(n.lookup_entity(global_id))
     # print(n.find_references_in_model(global_id))
-    res = n.find_references_to_global_id("builtin.print")
-    print("references to builtin.print: {}".format(", ".join([func.get_global_identifier() for func in res])))
-    res = n.find_references_to_global_id("loads")
+    res = n.find_references_to_global_id("python3.builtin.print")
+    print("references to python3.builtin.print: {}".format(", ".join([func.get_global_identifier() for func in res])))
+    res = n.find_references_to_global_id("python3.json.loads")
     for func in res:
         func: FunctionModel
-        vars = n.find_assignments(func, "loads")
-        print("found assignments to these vars that match loads: {}".format(", ".join(vars)))
-    print("references to json.loads: {}".format(", ".join([func.get_global_identifier() for func in res])))
+        vars = n.find_assignments(func, "python3.json.loads")
+        print("found assignments to these vars that match python3.json.loads: {}".format(", ".join(vars)))
+    print("references to python3.json.loads: {}".format(", ".join([func.get_global_identifier() for func in res])))
+    print(n.lookup_entity("python3.staticanalysertest.translator.sample.my_method_3")[1])
+    print("variable usages for test are {}".format(n.find_usages(n.lookup_entity("python3.staticanalysertest.translator.sample.my_method_3")[1], 'test')))

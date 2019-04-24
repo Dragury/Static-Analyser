@@ -402,9 +402,6 @@ class Descriptor(object):
         return res
 
     def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path, force: bool):
-        # TODO normalise whitespace for better parsing, either \t or 4 spaces
-        # TODO check for local file so I know the namespace for where entities live(global vs local)
-        # TODO check stored model for existing model + different hash from source
         try:
             logging.debug("Attempting to read file")
             with open(file, "r") as f:

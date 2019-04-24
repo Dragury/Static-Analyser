@@ -110,9 +110,13 @@ class ReferenceModel(ModelGeneric):
         pass
 
     def flatten(self) -> dict:
-        parms = self._parameters
-        if not type(parms) == str:
-            parms = [p.flatten() for p in parms]
+        parms = []
+        if not type(self._parameters) == str:
+            for p in self._parameters:
+                if issubclass(type(p), ModelGeneric):
+                    parms.append(p.flatten())
+                else:
+                    parms.append(p)
         return {
             "model_type": ModelMap.REFERENCE.value,
             "ref": self._ref,
@@ -139,7 +143,11 @@ class ReferenceModel(ModelGeneric):
     def load_from_dict(self, data: dict):
         self._ref = data.get("ref")
         self._target = data.get("target")
-        self._parameters = data.get("parameters")
+        self._parameters = []
+        for p in data.get("parameters"):
+            v = VariableModel(hollow=True)
+            v.load_from_dict(p)
+            self._parameters.append(v)
 
 
 class ControlFlowGeneric(ModelGeneric):
@@ -568,6 +576,12 @@ class VariableModel(NamedModelGeneric):
         self._name = data.get("name")
         self._type = data.get("type")
         self._default = data.get("default_value")
+
+    def get_type(self):
+        return self._type
+
+    def get_default(self):
+        return self._default
 
 
 class DependencyModel(ModelGeneric):
