@@ -4,6 +4,8 @@ from staticanalyser.translator.translate import translate
 from staticanalyser.navigator.navigate import navigate
 import sys
 import logging
+from pathlib import Path, PosixPath
+from os import path
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -16,6 +18,15 @@ logging.basicConfig(
 @click.group()
 def cli():
     pass
+
+
+def get_files(src: path) -> list:
+    res: list = [src]
+    if path.isdir(src):
+        res = []
+        for file in Path(src).iterdir():
+            res += get_files(file)
+    return res
 
 
 @cli.command("translate")
@@ -46,8 +57,10 @@ def translate_cmd(file: list, jobs: int, source_paths: list, force, lazy, output
 @click.option("-r", "--recursion-depth", "recursion_depth", type=click.INT,
               help="Recursion depth for finding variable usage", default=10)
 def navigate_cmd(global_id: str, recursion_depth: int):
-    # TODO probably load all files in the .model folder if I can find any, then search for GID
-    navigate(global_id, recursion_depth)
+    files_to_load = get_files(".model/")
+    path: PosixPath
+    logging.debug("trying to load: {}".format("\n\t".join([str(path) for path in files_to_load])))
+    navigate(global_id, recursion_depth, files_to_load)
 
 
 @cli.command("hunt")

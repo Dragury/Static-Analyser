@@ -276,7 +276,7 @@ class Descriptor(object):
         return path.join(output_path, self._lang, model_path) + ".json"
 
     def output_json(self, output_path: path, input_file: str, source_paths: path, sa_model: dict,
-                    file_hash: str):
+                    file_hash: str, extension: str):
         file_path: path = self._get_json_path(output_path, input_file, source_paths)
         file_dir: path = path.abspath(path.dirname(file_path))
         if not path.exists(file_dir):
@@ -285,6 +285,7 @@ class Descriptor(object):
             sa_model["hash"] = file_hash
             sa_model["file_name"] = str(input_file)
             sa_model["date_generated"] = str(datetime.datetime.now())
+            sa_model["model_id"] = self._get_base_prefix(input_file, extension, source_paths)
             group: str
             for group in sa_model.keys():
                 se: list = sa_model.get(group)
@@ -439,7 +440,7 @@ class Descriptor(object):
 
                 logging.debug("Reference resolution done.")
 
-                self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
+                self.output_json(local_dir, file, source_paths, selected_entities, file_hash, file_extension)
                 print("Translation done for {}".format(file))
             else:
                 print("Skipping {}".format(file))

@@ -44,13 +44,6 @@ class ModelOperations(object):
         return None
 
     @staticmethod
-    def get_model_file(global_id: str) -> path:
-        res = ModelOperations._find_file_in_dir(global_id, path.abspath(".model"))
-        if not res:
-            res = ModelOperations._find_file_in_dir(global_id, MODEL_DIR)
-        return res
-
-    @staticmethod
     def _find_file_in_dir(global_id: str, search_dir: path, return_gid: bool = False) -> path:
         id_parts: List[str] = global_id.split(".")
         current_search_path: path = search_dir
@@ -69,6 +62,13 @@ class ModelOperations(object):
                         return ".".join(id_parts[:id_parts.index(part)+1])
                     return test_path
         return None
+
+    @staticmethod
+    def get_model_file(global_id: str) -> path:
+        res = ModelOperations._find_file_in_dir(global_id, path.abspath(".model"))
+        if not res:
+            res = ModelOperations._find_file_in_dir(global_id, MODEL_DIR)
+        return res
 
     @staticmethod
     def get_base_global_id(global_id: str):
