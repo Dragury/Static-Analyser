@@ -32,16 +32,16 @@
     [format_strings.dangling_closing_bracket]
         regex = "(\\s*\\n\\s*(\\)|\\]|}))"
     [format_strings.decorator]
-        regex = "@({{name}})"
+        regex = "@(?P<decorator>{{name}})"
     [format_strings.commented_line]
-        regex = "(.*){{comment}}"
+        regex = "(?P<line_source>.*){{comment}}"
     [format_strings.return_type]
-        regex = "\\s*->\\s*({{name}})"
+        regex = "\\s*->\\s*(?P<return_type>{{name}})"
     [format_strings.function]
-        regex = "(\\s*)((def\\s+({{name}})\\((.+)?\\)({{return_type}})?\\s*:)\\n({{block_body}}))"
+        regex = "(?P<indent>\\s*)(?P<entire_function>(def\\s+(?P<function_name>{{name}})\\((.+)?\\)({{return_type}})?\\s*:)\\n({{block_body}}))"
         dependencies = ["return_type", "block_body"]
     [format_strings.decorated_function]
-        regex = "(\\s*)@({{name}})(\\((.+)\\))?\\n\\1({{function}})"
+        regex = "(\\s*)@(?P<decorator>{{name}})(\\((?P<decorator_params>.+)\\))?\\n\\1({{function}})"
         dependencies = ["function"]
     [format_strings.decorator_call]
         regex = "{{function}}\\n\\1(\\3)\\s*=\\s*({{name}})\\(\\s*((,?\\s*(({{name}}|{{value_no_dict}})\\s*)+)+)\\s*,\\s*\\)"
@@ -55,7 +55,7 @@
         regex = "({{name}})\\s*\\(\\s*({{parameter_call}})?\\)"
         dependencies = ["parameter_call"]
     [format_strings.class]
-        regex = "(\\s*)?class\\s+({{name}})(\\((.+)?\\))?:\\n({{block_body}})"
+        regex = "(?P<indentation>\\s*)?class\\s+(?P<class_name>{{name}})(\\((?P<subclasses>.+)?\\))?:\\n(?P<class_body>{{block_body}})"
         dependencies = ["block_body"]
     [format_strings.attribute]
         regex = "^(\\s*)?({{name}})\\s*(:\\s*({{name}})\\s*)?=\\s*{{value}}"
@@ -129,7 +129,7 @@
         description = "Remove any comments from the code"
         [[directives.strip_comments.variations]]
             regex_format_string = "commented_line"
-            regex_replace = "\\1"
+            regex_replace = "\\g<line_source>"
     [directives.strip_empty_lines]
         description = "Removes any empty lines"
         [[directives.strip_empty_lines.variations]]
@@ -139,7 +139,7 @@
         description = "Expand decorators around functions"
         [[directives.redecorate.variations]]
             regex_format_string = "decorated_function"
-            regex_replace = "\\1\\5\n\\1\\8 = \\2(\\8, \\4)\n"
+            regex_replace = "\\g<indent>\\g<entire_function>\n\\g<indent>\\g<function_name> = \\g<decorator>(\\g<function_name>, \\g<decorator_params>)\n"
     [directives.redecorate_clean]
         description = "the regex_replace for redecorate can leave messy commas for decorators with no parameters"
         [[directives.redecorate_clean.variations]]
@@ -336,7 +336,7 @@
         [[selectors.dependency.variations]]
             regex_format_string = "import"
             source = 1
-            provides = 2
+            provides = 1
         [selectors.dependency.subselectors]
             [selectors.dependency.subselectors.provided_dependencies]
                 search_texts = ["provides"]

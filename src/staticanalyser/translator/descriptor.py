@@ -6,7 +6,7 @@ from os import path
 from pathlib import Path
 
 import sys
-from typing import Union
+from typing import Union, Iterator
 
 from jsonschema import validate
 
@@ -20,6 +20,7 @@ import re
 import json
 import logging
 import staticanalyser.shared.config
+
 
 class RegexBuilderFactory(object):
     _builders: dict = {}
@@ -96,7 +97,7 @@ class Selector(object):
         return Selector._registered_selectors.get(name)
 
     def __init__(self, language: str, name: str, data: dict):
-        self._model_type = SelectorType.get_model_class(data.get("model_element"))
+        self._model_type = model.ModelMap.get_model_class(data.get("model_element"))
         self._name = name
         self._lang = language
         self._description = data.get("description")
@@ -124,8 +125,16 @@ class Selector(object):
                     artefact_info: dict = {}
                     for k in v.keys():
                         if k != "regex_format_string":
-                            artefact_info[k] = artefact[v[k]]
-                    a: model.ModelGeneric
+                            print("trying to get {}({}) from {}".format(k, v[k], artefact))
+                            try:
+                                artefact_info[k] = artefact[v[k]]
+                            except IndexError:
+                                print("Index failed for looking up {} in {} for {}".format(k, self._name, artefact))
+                    print("artefact info is {}".format(artefact_info))
+                    a: Union[
+                        model.ModelGeneric,
+                        model.NamedModelGeneric
+                    ]
                     if self._model_type is not None:
                         a = self._model_type(self._lang, prefix, artefact_info)
 
@@ -137,7 +146,8 @@ class Selector(object):
                                     if artefact_info.get(st):
                                         _res = s.select(
                                             artefact_info.get(st),
-                                            "{}.{}".format(prefix, a.get_name()) if issubclass(type(a), model.NamedModelGeneric) else prefix
+                                            "{}.{}".format(prefix, a.get_name()) if issubclass(type(a),
+                                                                                               model.NamedModelGeneric) else prefix
                                         )
                                         if not sub_selection.get(selector):
                                             sub_selection[selector] = {
@@ -163,37 +173,6 @@ class Selector(object):
 
     def get_qualified_name(self) -> str:
         return "{}.{}".format(self._lang, self._name)
-
-
-class SelectorType(Enum):
-    sa_function = "function"
-    sa_class = "class"
-    sa_variable = "variable"
-    sa_statement = "statement"
-    sa_for_loop = "for_loop"
-    sa_while_loop = "while_loop"
-    sa_if_condition = "if_condition"
-    sa_dependency = "dependency"
-    sa_basic_string = "basic_string"
-    sa_operation = "operation"
-    sa_reference = "reference"
-    _class_map: dict = {
-        sa_function: model.FunctionModel,
-        sa_class: model.ClassModel,
-        sa_variable: model.VariableModel,
-        sa_statement: model.StatementModel,
-        sa_for_loop: model.ForLoopModel,
-        sa_while_loop: model.WhileLoop,
-        sa_dependency: model.DependencyModel,
-        sa_if_condition: model.ConditionModel,
-        sa_basic_string: model.BasicString,
-        sa_operation: model.OperatorModel,
-        sa_reference: model.ReferenceModel
-    }
-
-    @staticmethod
-    def get_model_class(name: str) -> type:
-        return SelectorType._class_map.value.get(name)
 
 
 class Preprocessor(object):
@@ -238,7 +217,6 @@ class Descriptor(object):
             return
         else:
             self._lang = language_name
-            # TODO loading from lang files
             language_config = None
             with open(path.join(LANGS_DIR, "{}.toml".format(language_name)), "r") as language_file:
                 language_config = toml.load(language_file)
@@ -298,7 +276,7 @@ class Descriptor(object):
         return path.join(output_path, self._lang, model_path) + ".json"
 
     def output_json(self, output_path: path, input_file: str, source_paths: path, sa_model: dict,
-                    file_hash: str):
+                    file_hash: str, extension: str):
         file_path: path = self._get_json_path(output_path, input_file, source_paths)
         file_dir: path = path.abspath(path.dirname(file_path))
         if not path.exists(file_dir):
@@ -307,6 +285,7 @@ class Descriptor(object):
             sa_model["hash"] = file_hash
             sa_model["file_name"] = str(input_file)
             sa_model["date_generated"] = str(datetime.datetime.now())
+            sa_model["model_id"] = self._get_base_prefix(input_file, extension, source_paths)
             group: str
             for group in sa_model.keys():
                 se: list = sa_model.get(group)
@@ -320,21 +299,21 @@ class Descriptor(object):
     def _resolve_classes(self, namespace_stack: list, classes: list):
         klazz: model.ClassModel
         for index, klazz in enumerate(classes):
-            logging.info("resolving methods for class {} of {}".format(index+1, len(classes)))
+            logging.info("resolving methods for class {} of {}".format(index + 1, len(classes)))
             local_namespace_stack: list = copy.copy(namespace_stack)
             local_namespace_stack.append(klazz.get_functions())
             self._resolve_functions(local_namespace_stack, klazz.get_functions())
 
-
     def _resolve_functions(self, namespace_stack: list, functions: list):
         func: model.FunctionModel
         for index, func in enumerate(functions):
-            logging.info("Resolving function {} of {}: {}".format(index+1, len(functions), func.get_name() if type(func) is model.FunctionModel else "anonymous"))
+            logging.info("Resolving function {} of {}: {}".format(index + 1, len(functions), func.get_name() if type(
+                func) is model.FunctionModel else "anonymous"))
             st: Union[
                 model.StatementModel,
                 model.ReferenceModel,
                 model.ForLoopModel,
-                model.WhileLoop,
+                model.WhileLoopModel,
                 model.ConditionModel,
                 model.FunctionModel,
                 model.ClassModel
@@ -364,22 +343,25 @@ class Descriptor(object):
                                 logging.debug("Trying to match for {}".format(item))
                                 if type(item) is str:
                                     if call == item:
-                                        call = "builtin.{}".format(call)
+                                        call = "{}.builtin.{}".format(self._lang, call)
                                         call_found = True
                                         rhs.set_ref(call)
                                         logging.info("Reference matched to {}".format(call))
                                         break
                                 else:
                                     if type(item) is model.DependencyModel:
-                                        impo: str
+                                        impo: model.BasicString
                                         for impo in item.get_provided_imports():
-                                            if impo == call:
+                                            impo_str: str = impo.get_value()
+                                            if impo_str == call:
                                                 call_found = True
-                                                call = impo  # TODO full reference to import
-                                                logging.info("Reference matched to imported object")
+                                                call = ".".join([self._lang, item.get_source(), impo_str])
+                                                logging.info("Reference matched to imported object {}".format(call))
                                             if impo == '*':
                                                 logging.info("Reference matched to wildcard")
+                                                call = ".".join([self._lang, item.get_source(), "*"])
                                                 call_found = True
+                                            rhs.set_ref(call)
                                     elif type(item) in [model.FunctionModel, model.ClassModel]:
                                         logging.debug("Comparing to {}".format(item.get_name()))
                                         if item.get_name() == call:
@@ -390,16 +372,18 @@ class Descriptor(object):
                                             break
 
                     if not call_found:
-                        logging.warning("No reference found to resolve {}.{}".format(func.get_global_identifier(), call))
+                        logging.warning(
+                            "No reference found to resolve {}.{}".format(func.get_global_identifier(), call))
                 else:
-                    if type(st) in [model.WhileLoop, model.ConditionModel, model.ForLoopModel, model.FunctionModel]:
+                    if type(st) in [model.WhileLoopModel, model.ConditionModel, model.ForLoopModel,
+                                    model.FunctionModel]:
                         namespace_stack.append([st.get_global_identifier() if type(st) is model.FunctionModel else ""])
                         self._resolve_functions(namespace_stack, [st])
-                        namespace_stack.pop(len(namespace_stack)-1)
+                        namespace_stack.pop(len(namespace_stack) - 1)
                     elif type(st) is model.ClassModel:
                         namespace_stack.append([st.get_global_identifier()])
                         self._resolve_classes(namespace_stack, [st])
-                        namespace_stack.pop(len(namespace_stack)-1)
+                        namespace_stack.pop(len(namespace_stack) - 1)
                     logging.debug("Skipping statement")
 
     def resolve_references(self, selection: dict) -> dict:
@@ -416,11 +400,9 @@ class Descriptor(object):
         self._resolve_classes(namespace_stack, res.get("classes"))
         logging.debug("resolving top level functions")
         self._resolve_functions(namespace_stack, res.get("functions"))
+        return res
 
     def parse(self, file: str, file_extension: str, local_dir: path, source_paths: path, force: bool):
-        # TODO normalise whitespace for better parsing, either \t or 4 spaces
-        # TODO check for local file so I know the namespace for where entities live(global vs local)
-        # TODO check stored model for existing model + different hash from source
         try:
             logging.debug("Attempting to read file")
             with open(file, "r") as f:
@@ -437,7 +419,6 @@ class Descriptor(object):
             if model_expired:
                 print("Translating {}".format(file))
                 file_contents = self.preprocess(file_contents)
-                print(file_contents)
                 logging.debug("Preprocessing done.")
                 prefix: str = self._get_base_prefix(file, file_extension, source_paths)
                 selected_entities: dict = self.select(file_contents, prefix)
@@ -452,7 +433,6 @@ class Descriptor(object):
                         for tlfunc in selected_entities.get("functions") or []:
                             logging.info("found duplicate for {}".format(tlfunc.get_name()))
                             if tlfunc.get_hash() == function_hash:
-
                                 selected_entities.get("functions").remove(tlfunc)
                 logging.debug("Reference deduplication done.")
 
@@ -460,7 +440,7 @@ class Descriptor(object):
 
                 logging.debug("Reference resolution done.")
 
-                self.output_json(local_dir, file, source_paths, selected_entities, file_hash)
+                self.output_json(local_dir, file, source_paths, selected_entities, file_hash, file_extension)
                 print("Translation done for {}".format(file))
             else:
                 print("Skipping {}".format(file))
