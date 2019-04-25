@@ -22,3 +22,9 @@ as Rust, however I chose python for its flexibility and my familiarity with
 it.
 
 It's been fun though! 😁 
+
+I think with a rewrite, I would support languages with specific libraries
+rather than trying to add support through TOML/JSON/text files. Would make
+it much easier, and once a language is supported it's not like there needs
+to be more people implementing it... a bit of a poor design choice by me
+imo but live and learn.
