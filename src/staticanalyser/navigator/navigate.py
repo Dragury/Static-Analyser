@@ -184,7 +184,9 @@ class Navigator:
                 if parm.get_default() == variable:
                     func: FunctionModel = self.lookup_entity(rhs.get_ref())
                     if func[0]:
-                        return func[1], func[1].get_parameters()[index].get_name()
+                        return func[1], func[1].get_parameters()[
+                            index if func[1].get_parameters()[0].get_name() != "self" else index + 1
+                        ].get_name()
         return None, ""
 
     def find_usages(self, func: FunctionModel, variable: str) -> List[Tuple[FunctionModel,str]]:
