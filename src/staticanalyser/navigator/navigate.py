@@ -229,6 +229,21 @@ def _navigate(n: Navigator, function: FunctionModel, global_id: str, recursion_d
     ret: List[Tuple[str, List]] = []
     for usage in n.find_usages(function, global_id):
         if recursion_depth > 1:
-            ret.append((usage.get_global_identifier(), _navigate(n, usage, global_id, recursion_depth-1)))
+            if issubclass(type(usage), NamedModelGeneric):
+                usage: FunctionModel
+                ret.append(
+                    (
+                        usage.get_global_identifier(),
+                        _navigate(n, usage, global_id, recursion_depth-1)
+                    )
+                )
+            else:
+                usage: str
+                ret.append(
+                    (
+                        usage,
+                        []
+                    )
+                )
     return ret
 

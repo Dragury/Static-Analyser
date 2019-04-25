@@ -50,6 +50,7 @@ def my_method_3() -> None:
     while True:
         print(test)
         empty = loads("{}")
+        print(empty)
 
 
 if __name__ == "__main__":

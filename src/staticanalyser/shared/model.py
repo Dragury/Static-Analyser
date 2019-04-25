@@ -188,7 +188,7 @@ class NamedModelGeneric(ModelGeneric):
                 self._hash = md5(self._body.encode("utf-8")).hexdigest()
             self._lang = language
 
-    def get_global_identifier(self):
+    def get_global_identifier(self) -> str:
         return self._global_identifier
 
     def get_hash(self):
