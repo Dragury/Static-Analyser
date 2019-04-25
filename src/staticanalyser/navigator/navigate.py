@@ -167,8 +167,7 @@ class Navigator:
                 for dependency in dependencies:
                     self.load_entity(dependency, True)
 
-    @staticmethod
-    def _find_usage_assignment(st: StatementModel, variable: str):
+    def _find_usage_assignment(self, st: StatementModel, variable: str) -> str:
         rhs = st.get_rhs()
         if type(rhs) == ReferenceModel:
             rhs: ReferenceModel
@@ -176,30 +175,30 @@ class Navigator:
                 return st.get_lhs()
         return None
 
-    @staticmethod
-    def _find_usage_parameter(st: StatementModel, variable: str):
+    def _find_usage_parameter(self, st: StatementModel, variable: str) -> Tuple[FunctionModel, str]:
         rhs = st.get_rhs()
         if type(rhs) == ReferenceModel:
             rhs: ReferenceModel
-            for parm in rhs.get_parameters():
+            for index, parm in enumerate(rhs.get_parameters()):
                 parm: VariableModel
                 if parm.get_default() == variable:
-                    return rhs.get_ref()
-        return None
+                    func: FunctionModel = self.lookup_entity(rhs.get_ref())
+                    if func[0]:
+                        return func[1], func[1].get_parameters()[index].get_name()
+        return None, ""
 
-    @staticmethod
-    def find_usages(func: FunctionModel, variable: str) -> List[FunctionModel]:
-        ret: List[FunctionModel] = []
+    def find_usages(self, func: FunctionModel, variable: str) -> List[Tuple[FunctionModel,str]]:
+        ret: List[Tuple[FunctionModel, str]] = []
         for statement in func.get_as_statements():
             if type(statement) is StatementModel:
-                new_var = Navigator._find_usage_assignment(statement, variable)
+                new_var = self._find_usage_assignment(statement, variable)
                 if new_var:
-                    ret += Navigator.find_usages(func, new_var)
-                func_res = Navigator._find_usage_parameter(statement, variable)
-                if func_res:
+                    ret += self.find_usages(func, new_var)
+                func_res = self._find_usage_parameter(statement, variable)
+                if func_res[0]:
                     ret.append(func_res)
             if issubclass(type(statement), ControlFlowGeneric):
-                ret += Navigator.find_usages(statement, variable)
+                ret += self.find_usages(statement, variable)
         return ret
 
     def get_loaded_models(self):
@@ -229,19 +228,19 @@ def _navigate(n: Navigator, function: FunctionModel, global_id: str, recursion_d
     ret: List[Tuple[str, List]] = []
     for usage in n.find_usages(function, global_id):
         if recursion_depth > 1:
-            if issubclass(type(usage), NamedModelGeneric):
-                usage: FunctionModel
+            if issubclass(type(usage[0]), NamedModelGeneric):
+                usage: Tuple[str, str]
                 ret.append(
                     (
-                        usage.get_global_identifier(),
-                        _navigate(n, usage, global_id, recursion_depth-1)
+                        usage[0].get_global_identifier(),
+                        _navigate(n, usage[0], usage[1], recursion_depth-1)
                     )
                 )
             else:
-                usage: str
+                usage: Tuple[str, str]
                 ret.append(
                     (
-                        usage,
+                        usage[0],
                         []
                     )
                 )

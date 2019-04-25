@@ -551,6 +551,9 @@ class FunctionModel(NamedModelGeneric, ControlFlowGeneric):
                 e.load_from_dict(entity)
                 self._statements.append(e)
 
+    def get_parameters(self):
+        return self._parameters
+
 
 class VariableModel(NamedModelGeneric):
     _name: str = None

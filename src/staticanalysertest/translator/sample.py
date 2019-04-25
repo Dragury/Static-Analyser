@@ -51,6 +51,12 @@ def my_method_3() -> None:
         print(test)
         empty = loads("{}")
         print(empty)
+        my_method_4(empty)
+
+
+def my_method_4(hurrah):
+    my_method_2(hurrah)
+    my_method(hurrah)
 
 
 if __name__ == "__main__":
