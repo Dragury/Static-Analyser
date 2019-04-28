@@ -8,7 +8,9 @@ _CONFIG_ITEMS = {
     "languages": [],
     "filetypes": {},
     "source_dirs": {},
-    "builtins": {}
+    "builtins": {},
+    "sink_funcs": {},
+    "danger_funcs": {}
 }
 __all__ = ['get_languages', 'get_languages_by_extension', 'get_filetypes', 'get_file_extensions']
 
@@ -26,6 +28,8 @@ for file in langs_dir.iterdir():
                     _CONFIG_ITEMS.get("filetypes").get(extension).append(lang_info.get("name"))
             _CONFIG_ITEMS.get("source_dirs")[lang_info.get("name")] = lang_info.get("global_sources")
             _CONFIG_ITEMS.get("builtins")[lang_info.get("name")] = lang_info.get("builtins")
+            _CONFIG_ITEMS.get("sink_funcs")[lang_info.get("name")] = lang_info.get("sink_functions")
+            _CONFIG_ITEMS.get("danger_funcs")[lang_info.get("name")] = lang_info.get("danger_functions")
 
 
 # CONFIG SUBFUNCTIONS
@@ -80,3 +84,19 @@ def get_builtins() -> dict:
 
 def get_language_builtins(lang: str) -> dict:
     return get_builtins().get(lang) or {}
+
+
+def get_danger_funcs() -> dict:
+    return _get_config_item()
+
+
+def get_danger_funcs_for_lang(language: str) -> list:
+    return get_danger_funcs().get(language)
+
+
+def get_sink_funcs() -> dict:
+    return _get_config_item()
+
+
+def get_sink_funcs_for_lang(language: str) -> list:
+    return get_sink_funcs().get(language)

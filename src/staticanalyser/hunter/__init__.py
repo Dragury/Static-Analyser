@@ -1,5 +1,7 @@
 from typing import List, Tuple
 import logging
+import staticanalyser.shared.config as config
+
 
 from staticanalyser.navigator.navigate import navigate
 
@@ -34,10 +36,17 @@ def _strip_safe_branches(sink_functions: list, tree: List[Tuple]):
 
 
 def hunt(recursion_depth: int, sink_functions: list, dangers: list, clean_funcs: list,
-         file_list: list):
+         file_list: list, language: str = ""):
+    if language != "":
+        if config.get_sink_funcs_for_lang(language):
+            sink_functions += config.get_sink_funcs_for_lang(language)
+        if config.get_danger_funcs_for_lang(language):
+            dangers += config.get_danger_funcs_for_lang(language)
+    findings = []
     for danger in dangers:
-        findings = navigate(danger, recursion_depth, file_list)
+        res = navigate(danger, recursion_depth, file_list)
         for func in clean_funcs:
-            _prune_tree(func, findings)
-        _strip_safe_branches(sink_functions, findings)
-        return findings
+            _prune_tree(func, res)
+        _strip_safe_branches(sink_functions, res)
+        findings.append((danger, res))
+    return findings

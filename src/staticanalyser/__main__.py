@@ -73,9 +73,11 @@ def navigate_cmd(global_id: str, recursion_depth: int):
               help="Specify the id of something considered to be a dangerous data source")
 @click.option("-c", "--clean-function", "clean_funcs", multiple=True, type=click.STRING,
               help="Specify the global id of a function that cleans data")
-def hunt_cmd(recursion_depth: int, sink_functions: list, dangers: list, clean_funcs: list):
+@click.option("-l", "--language", "language", type=click.STRING, help="Language to use for standard searching",
+              default="")
+def hunt_cmd(recursion_depth: int, sink_functions: list, dangers: list, clean_funcs: list, language: str):
     files_to_load = get_files(".model/")
-    print(hunt(recursion_depth, sink_functions, dangers, clean_funcs, files_to_load))
+    print(hunt(recursion_depth, list(sink_functions), list(dangers), list(clean_funcs), files_to_load, language))
 
 
 if __name__ == "__main__":
