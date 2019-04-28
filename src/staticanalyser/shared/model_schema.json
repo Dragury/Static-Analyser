@@ -86,7 +86,7 @@
         "hash": {
           "type": "string"
         },
-        "subclasses": {
+        "parent_classes": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/class"
@@ -107,7 +107,7 @@
         "name",
         "global_id",
         "hash",
-        "subclasses",
+        "parent_classes",
         "methods"
       ]
     },

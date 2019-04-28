@@ -354,6 +354,8 @@
     description = "Support for the python3 language"
     file_extensions = ["py", "pyw"]
     method_prefix = "self."
+    sink_functions = [""]
+    danger_functions = [""]
     [info.global_sources]
         posix = [
         "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages",
@@ -450,3 +452,4 @@
     function = "functions"
     class = "classes"
     dependency = "dependencies"
+
