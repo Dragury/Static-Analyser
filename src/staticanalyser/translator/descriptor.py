@@ -286,6 +286,7 @@ class Descriptor(object):
             sa_model["file_name"] = str(input_file)
             sa_model["date_generated"] = str(datetime.datetime.now())
             sa_model["model_id"] = self._get_base_prefix(input_file, extension, source_paths)
+            sa_model["source_language"] = self._lang
             group: str
             for group in sa_model.keys():
                 se: list = sa_model.get(group)
@@ -343,7 +344,7 @@ class Descriptor(object):
                                 logging.debug("Trying to match for {}".format(item))
                                 if type(item) is str:
                                     if call == item:
-                                        call = "{}.builtin.{}".format(self._lang, call)
+                                        call = "{}.builtins.{}".format(self._lang, call)
                                         call_found = True
                                         rhs.set_ref(call)
                                         logging.info("Reference matched to {}".format(call))

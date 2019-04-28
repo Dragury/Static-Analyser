@@ -59,7 +59,7 @@ class ModelOperations(object):
                 test_path = "{}.{}.json".format(current_search_path, ft)
                 if path.isfile(test_path):
                     if return_gid:
-                        return ".".join(id_parts[:id_parts.index(part)+1])
+                        return ".".join(id_parts[:id_parts.index(part) + 1])
                     return test_path
         return None
 
@@ -202,20 +202,20 @@ class NamedModelGeneric(ModelGeneric):
 
 
 class ClassModel(NamedModelGeneric):
-    _subclasses: list = None
+    _parent_classes: list = None
     _attributes: list = None
     _functions: list = None
 
     def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
         super(ClassModel, self).__init__(language, prefix, data, hollow)
-        self._subclasses = []
+        self._parent_classes = []
         self._attributes = []
         self._functions = []
 
     def add_subselection(self, sub_selection: dict):
-        self._subclasses = sub_selection.get("class".format(self._lang))
-        self._attributes = sub_selection.get("attribute".format(self._lang))
-        self._functions = sub_selection.get("function".format(self._lang))
+        self._parent_classes = sub_selection.get("class")
+        self._attributes = sub_selection.get("attribute")
+        self._functions = sub_selection.get("function")
 
     def get_functions(self) -> list:
         return self._functions
@@ -225,14 +225,14 @@ class ClassModel(NamedModelGeneric):
 
     def flatten(self) -> dict:
         flattened_functions: list = [f.flatten() for f in self._functions]
-        flattened_subclasses: list = [c.flatten() for c in self._subclasses]
+        flattened_parent_classes: list = [c.flatten() for c in self._parent_classes]
         flattened_attributes: list = [a.flatten() for a in self._attributes]
         return {
             "model_type": ModelMap.CLASS.value,
             "name": self._name,
             "global_id": self._global_identifier,
             "hash": self._hash,
-            "subclasses": flattened_subclasses,  # Umm, this should be parent classes?
+            "parent_classes": flattened_parent_classes,  # Umm, this should be parent classes?
             "methods": flattened_functions,
             "attributes": flattened_attributes,
             "body": self._body
@@ -248,8 +248,14 @@ class ClassModel(NamedModelGeneric):
             a = VariableModel(hollow=True)
             a.load_from_dict(attribute)
             self._attributes.append(a)
-        # TODO Function loading
-        # TODO *PARENT* class reference loading
+        self._functions = []
+        for method in data.get("methods"):
+            m = FunctionModel(hollow=True)
+            m.load_from_dict(method)
+            self._functions.append(m)
+        self._parent_classes = []
+        for pc in data.get("parent_classes"):
+            self._parent_classes.append(BasicString("","",{"value": pc}))
 
 
 class OperatorType(Enum):

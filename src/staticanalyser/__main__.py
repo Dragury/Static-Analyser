@@ -2,6 +2,7 @@
 import click
 from staticanalyser.translator.translate import translate
 from staticanalyser.navigator.navigate import navigate
+from staticanalyser.hunter import hunt
 import sys
 import logging
 from pathlib import Path, PosixPath
@@ -60,17 +61,21 @@ def navigate_cmd(global_id: str, recursion_depth: int):
     files_to_load = get_files(".model/")
     path: PosixPath
     logging.debug("trying to load: {}".format("\n\t".join([str(path) for path in files_to_load])))
-    navigate(global_id, recursion_depth, files_to_load)
+    print(navigate(global_id, recursion_depth, files_to_load))
 
 
 @cli.command("hunt")
-@click.argument("file", type=click.Path(exists=True), required=True)
-@click.option("-s", "--source-path", "source_paths", multiple=True, type=click.Path(exists=True),
-              help="Path(s) for rooting translation, defaults to current working dir")
 @click.option("-r", "--recursion-depth", "recursion_depth", type=click.INT,
               help="Recursion depth for finding variable usage", default=10)
-def hunt_cmd(file, source_paths: list, recursion_depth: int):
-    print("TODO!")
+@click.option("-s", "--sink-function", "sink_functions", multiple=True, type=click.STRING,
+              help="Specify the global id of a function considered to be vulnerable")
+@click.option("-d", "--danger", "dangers", multiple=True, type=click.STRING,
+              help="Specify the id of something considered to be a dangerous data source")
+@click.option("-c", "--clean-function", "clean_funcs", multiple=True, type=click.STRING,
+              help="Specify the global id of a function that cleans data")
+def hunt_cmd(recursion_depth: int, sink_functions: list, dangers: list, clean_funcs: list):
+    files_to_load = get_files(".model/")
+    print(hunt(recursion_depth, sink_functions, dangers, clean_funcs, files_to_load))
 
 
 if __name__ == "__main__":

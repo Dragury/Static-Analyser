@@ -176,17 +176,20 @@ class Navigator:
         return None
 
     def _find_usage_parameter(self, st: StatementModel, variable: str) -> Tuple[FunctionModel, str]:
+        logging.debug("Finding use of {} for {}".format(variable, st))
         rhs = st.get_rhs()
         if type(rhs) == ReferenceModel:
             rhs: ReferenceModel
             for index, parm in enumerate(rhs.get_parameters()):
                 parm: VariableModel
                 if parm.get_default() == variable:
-                    func: FunctionModel = self.lookup_entity(rhs.get_ref())
+                    func: Tuple[bool, FunctionModel] = self.lookup_entity(rhs.get_ref())
                     if func[0]:
                         return func[1], func[1].get_parameters()[
                             index if func[1].get_parameters()[0].get_name() != "self" else index + 1
                         ].get_name()
+                    else:
+                        return rhs.get_ref(), variable
         return None, ""
 
     def find_usages(self, func: FunctionModel, variable: str) -> List[Tuple[FunctionModel,str]]:
@@ -222,7 +225,6 @@ def navigate(global_id: str, recursion_depth: int, file_list: list):
     for index, ref in enumerate(refs):
         ref: FunctionModel
         ret.append((ref.get_global_identifier(), _navigate(n, ref, global_id, recursion_depth)))
-    print(ret)
     return ret
 
 
@@ -231,7 +233,7 @@ def _navigate(n: Navigator, function: FunctionModel, global_id: str, recursion_d
     for usage in n.find_usages(function, global_id):
         if recursion_depth > 1:
             if issubclass(type(usage[0]), NamedModelGeneric):
-                usage: Tuple[str, str]
+                usage: Tuple[FunctionModel, str]
                 ret.append(
                     (
                         usage[0].get_global_identifier(),
