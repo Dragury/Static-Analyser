@@ -167,7 +167,7 @@ class ControlFlowGeneric(ModelGeneric):
     @staticmethod
     def _load_block(data: dict, block_name: str) -> list:
         res = []
-        for st in data.get("blocks").get(block_name):
+        for st in data.get(block_name):
             st: dict
             klazz = ModelMap.get_model_class(st.get("model_type"))
             s = klazz(hollow=True)
