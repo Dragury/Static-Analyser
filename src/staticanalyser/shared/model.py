@@ -27,7 +27,8 @@ class ModelOperations(object):
                     # TODO change from first come first served
                     if type(line) is StatementModel and entity.get_as_strings()[0] == line.get_rhs():
                         for i in range(len(entity.get_as_strings()) - 1):
-                            res.pop(index + 1)
+                            if len(res) > index + 1:
+                                res.pop(index + 1)
                         res[index] = entity
             return res
         except NotImplementedError:
@@ -163,6 +164,17 @@ class ControlFlowGeneric(ModelGeneric):
                 res[k] = self._control_flow[k]
         return res
 
+    @staticmethod
+    def _load_block(data: dict, block_name: str) -> list:
+        res = []
+        for st in data.get(block_name):
+            st: dict
+            klazz = ModelMap.get_model_class(st.get("model_type"))
+            s = klazz(hollow=True)
+            s.load_from_dict(st)
+            res.append(s)
+        return res
+
     def get_as_statements(self) -> list:
         raise NotImplementedError()
 
@@ -255,7 +267,7 @@ class ClassModel(NamedModelGeneric):
             self._functions.append(m)
         self._parent_classes = []
         for pc in data.get("parent_classes"):
-            self._parent_classes.append(BasicString("","",{"value": pc}))
+            self._parent_classes.append(BasicString("", "", {"value": pc}))
 
 
 class OperatorType(Enum):
@@ -394,12 +406,23 @@ class WhileLoopModel(ControlFlowGeneric):
     _control_flow: dict = None
     _do_while: bool = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._loop = data.get("loop")
+            self._body = data.get("body")
+            self._condition = data.get("condition")
+            self._control_flow = {}
+
+    def load_from_dict(self, data: dict):
         self._loop = data.get("loop")
-        self._body = data.get("body")
         self._condition = data.get("condition")
-        self._control_flow = {}
-        pass
+        self._body = data.get("body")
+        self._body_parsed = []
+        for st in data.get("body_parsed"):
+            klazz = ModelMap.get_model_class(st.get("model_type"))
+            e = klazz(hollow=True)
+            e.load_from_dict(st)
+            self._body_parsed.append(e)
 
     def flatten(self) -> dict:
         self._control_flow = self.flatten_dict("for", "while", "if")
@@ -434,11 +457,19 @@ class ConditionModel(ControlFlowGeneric):
     _condition: OperatorModel = None
     _true_condition: str = None
 
-    def __init__(self, language: str, prefix: str, data: dict):
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
+        if not hollow:
+            self._condition = data.get("condition")
+            self._control_flow = {
+                "true": data.get("true_block") or "",
+                "false": data.get("false_block") or ""
+            }
+
+    def load_from_dict(self, data: dict):
         self._condition = data.get("condition")
         self._control_flow = {
-            "true": data.get("true_block") or "",
-            "false": data.get("false_block") or ""
+            "true": ConditionModel._load_block(data.get("blocks"), "true_block"),
+            "false": ConditionModel._load_block(data.get("blocks"), "false_block")
         }
 
     def flatten(self) -> dict:
