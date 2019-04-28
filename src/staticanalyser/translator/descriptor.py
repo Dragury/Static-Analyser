@@ -373,8 +373,13 @@ class Descriptor(object):
                                             break
 
                     if not call_found:
-                        logging.warning(
-                            "No reference found to resolve {}.{}".format(func.get_global_identifier(), call))
+                        if type(func) is model.FunctionModel:
+                            logging.warning(
+                                "No reference found to resolve {}.{}".format(func.get_global_identifier(), call))
+                        else:
+                            logging.warning(
+                                "No reference found to resolve {}.{}".format("anonymous", call)
+                            )
                 else:
                     if type(st) in [model.WhileLoopModel, model.ConditionModel, model.ForLoopModel,
                                     model.FunctionModel]:
