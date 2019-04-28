@@ -406,7 +406,7 @@ class WhileLoopModel(ControlFlowGeneric):
     _control_flow: dict = None
     _do_while: bool = None
 
-    def __init__(self, language: str, prefix: str, data: dict, hollow: bool = False):
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
         if not hollow:
             self._loop = data.get("loop")
             self._body = data.get("body")
@@ -457,7 +457,7 @@ class ConditionModel(ControlFlowGeneric):
     _condition: OperatorModel = None
     _true_condition: str = None
 
-    def __init__(self, language: str, prefix: str, data: dict, hollow: bool = False):
+    def __init__(self, language: str = "", prefix: str = "", data: dict = None, hollow: bool = False):
         if not hollow:
             self._condition = data.get("condition")
             self._control_flow = {
