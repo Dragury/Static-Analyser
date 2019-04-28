@@ -27,7 +27,8 @@ class ModelOperations(object):
                     # TODO change from first come first served
                     if type(line) is StatementModel and entity.get_as_strings()[0] == line.get_rhs():
                         for i in range(len(entity.get_as_strings()) - 1):
-                            res.pop(index + 1)
+                            if len(res) > index+1:
+                                res.pop(index + 1)
                         res[index] = entity
             return res
         except NotImplementedError:
