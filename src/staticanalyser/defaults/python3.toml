@@ -354,8 +354,17 @@
     description = "Support for the python3 language"
     file_extensions = ["py", "pyw"]
     method_prefix = "self."
-    sink_functions = [""]
-    danger_functions = [""]
+    sink_functions = [
+        "python3.pickle.unpickle",
+        "python3.builtins.exec",
+        "python3._socket.Connection.send",
+        "python3.mysqldb.Cursor.execute",
+        "python3.subprocess.run"
+    ]
+    danger_functions = [
+        "python3._socket.Connection.recv",
+        "python3.flask.request"
+    ]
     [info.global_sources]
         posix = [
         "/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages",
